@@ -41,15 +41,41 @@ Always ask the user how they want to define the tests. Frame template-and-point 
 
 > *"Two ways to handle the tests: (1) I generate a template test file with placeholder cases reflecting the feature spec, then point you to it so you can edit the assertions to match what you actually want — usually faster. Or (2) we work through them together case-by-case before writing any. Default is (1) unless you'd rather collaborate from scratch."*
 
+### Before drafting: write the bug list first
+
+Whichever path the user chooses, draft a bug list before drafting any tests. Enumerate 5–15 specific bugs you'd want to catch — concrete failure modes you can describe in one sentence:
+
+- ✅ "User submits checkout with expired card → goes through anyway"
+- ✅ "Empty cart total returns NaN instead of 0"
+- ✅ "Override path takes 8 seconds instead of 5"
+- ❌ "Validates input correctly"
+- ❌ "Handles errors"
+- ❌ "Covers edge cases"
+
+If you can't write the bug list, the feature is under-specified. Ask the user what concrete failure modes they're worried about before going further.
+
+### Audit gate: every test maps to a bug
+
+Before showing any test to the user — template stubs in Path 1, or a proposed test in Path 2 — walk each entry and write the bug it catches in one sentence. Cite the concrete failure mode: "the BOS-strip silently undone", "the override path goes 8s instead of 5s", "expired card check skipped on retry".
+
+If the answer is vague ("verifies the field exists", "checks the function works", "covers the schema"), the test is noise. Cut it.
+
+**Never show the user the first draft.** Show the trimmed list — the one where every remaining test maps to a concrete bug. This is the forcing function. Without it, the natural drift is toward long lists of tests that look thorough but mostly mirror values defined elsewhere or pin implementation details.
+
+See `references/good-tests-vs-bad-tests.md` for the specific anti-patterns the audit is designed to cut (value mirrors, framework tests, trivial guards, type tautologies, mock-call paranoia) and the patterns that produce genuinely useful tests.
+
 ### Path 1: Template-and-point (default)
 
-Generate a test file at the right location, in the right framework idiom (see `references/test-templates.md`). Include:
+Draft test stubs that target items from the bug list. Each stub:
 
-- 3–5 test stubs covering happy path, an edge case, and an error case.
-- 1–2 stubs explicitly labeled `# TODO: replace with your real edge case here`.
-- Descriptive names (`test_user_can_checkout_with_valid_cart`, not `test_1`).
-- A comment block on each stub describing what it should assert.
-- Best-guess assertions where reasonable — the user is going to edit them, but plausible scaffolding helps.
+- Maps to one or more concrete bugs from the list.
+- Has a descriptive name (`test_user_can_checkout_with_valid_cart`, not `test_1`).
+- Has a docstring stating which bug it catches.
+- Has plausible best-guess assertions — the user will edit them, but real scaffolding helps.
+
+Aim for 3–5 stubs covering happy path, edges, and errors. Include 1–2 explicit `# TODO: real edge case from your domain` stubs as invitations for cases the bug list missed.
+
+**Run the audit gate on the draft before saving the file.** Cut any stub you can't justify in one sentence. Save the trimmed file at the right location, in the right framework idiom (see `references/test-templates.md`).
 
 **Then stop. Tell the user the file path and what to review. Do not proceed to implementation until they confirm.**
 
@@ -57,17 +83,13 @@ Generate a test file at the right location, in the right framework idiom (see `r
 
 Ask: *"What's the first observable behavior you want to verify?"* — observable meaning checkable through the public interface, not internal state.
 
-Propose one test for that behavior, fully written, and ask for sign-off before adding it to the file. Continue case-by-case until the user says they have enough for a vertical slice (typically 3–5 tests for one coherent behavior).
+For each test you're about to propose, **first run the audit gate**: write the one-sentence bug it catches. If you can't, don't propose it — the user shouldn't see the first draft.
 
-### Test quality
+Propose the audited test, fully written, and ask for sign-off before adding it to the file. Continue case-by-case until the user says they have enough for a vertical slice (typically 3–5 tests for one coherent behavior).
 
-Whichever path: tests describe **WHAT** the system does, not **HOW**. Before writing tests, glance at `references/good-tests-vs-bad-tests.md`. Headline rules:
+### Test quality (reference)
 
-- Test through public interfaces.
-- Names read like a spec.
-- One observable behavior per test.
-- Don't assert on private methods, internal data structures, or call counts (unless the call itself IS the contract — e.g., emails sent).
-- Don't write tautology tests (`assert 1 + 1 == 2`).
+The audit gate above is the primary discipline. For the specific anti-patterns the audit is designed to cut and the patterns that produce useful tests, see `references/good-tests-vs-bad-tests.md`.
 
 ### Confirm tests fail (Red)
 
@@ -124,6 +146,8 @@ If refactoring: change one thing at a time, keep tests green between changes, te
 ## Failure modes to watch for in yourself
 
 - **Sneaking past Phase 1.** Writing implementation before tests are confirmed. If you find yourself doing this, stop and back up.
+- **Showing the first draft of tests.** The user sees the audited list, never the first draft. If you're about to surface a test you can't justify with a one-sentence bug-mapping, cut it first. Padding a test list with framework checks and type tautologies to look thorough is the failure mode this whole audit gate exists to prevent.
+- **Skipping the bug list.** Drafting tests directly from your read of the feature, without first enumerating concrete failure modes, is how the audit gate gets bypassed in practice. The bug list is the spec the tests are graded against — without it, "what bug does this catch?" has no grounding.
 - **Picking a pattern silently.** Implementing in some style without surfacing options. The user explicitly wants to retain mental model of their codebase — always offer the menu.
 - **Optimizing without asking.** Even small "improvements" (renaming a variable for clarity, extracting a helper) belong in Phase 4 with consent, not Phase 3 unilaterally.
 - **Rewriting tests to make them pass.** Never. The protocol is: report failure, present three options, wait.
