@@ -21,7 +21,7 @@ Five phases, in this default order. Discovery and research interleave; pushback 
 2. **Research** — primary-source research on best practices in the relevant vertical
 3. **Pushback & realignment** — challenge premises, surface missing context, end with a playback the user confirms
 4. **Proposal** — one concrete recommendation, at least one genuine alternative, explicit tradeoffs
-5. **Artifacts** — concrete docs, templates, and configs the user should create to make decisions stick
+5. **Artifacts** — concrete docs, templates, and configs the user should create to make decisions stick.
 
 ## Phase 1: Discovery
 
@@ -138,7 +138,9 @@ After listing, offer: *"Want me to draft any of these now?"* Do not auto-generat
 
 ### The implementation plan (`implementation_plan.md`)
 
-When the proposal involves non-trivial work to execute — multi-step rollout, new infrastructure, repo restructuring, migration, or any sequenced build — produce an `implementation_plan.md` as a distinguished, execution-focused artifact. This is the handoff document for Claude Code (or the user's future self) and has specific required structure.
+When the proposal involves non-trivial work to execute — multi-step rollout, new infrastructure, repo restructuring, migration, or any sequenced build — produce an `[desciptive_name]_implementation_plan.md` as a distinguished, execution-focused artifact. This is the handoff document for Claude Code (or the user's future self) and has specific required structure.
+
+These implementation_plan.mds are usually gitignored. Ask the user if one exists that should be ammended, if not create it in a relevant directory.
 
 **Required structure:**
 
@@ -174,6 +176,8 @@ When the proposal involves non-trivial work to execute — multi-step rollout, n
 5. **Do not pre-number new ADRs.** Where the plan references ADRs that don't yet exist, refer to them by topic only — e.g., "*ADR: CI platform choice*" or "*ADR: monorepo vs polyrepo*" — never "ADR-0007: CI platform choice". The actual number is assigned at write-time, after the implementer has checked what ADRs already exist in the repo. Pre-numbering creates conflicts and incorrect cross-references.
 
 The implementation plan is the most likely artifact a user will accept on first offer — surface it explicitly when offering to draft artifacts, separately from the documentation set.
+
+6. **Test clean up.** Review all tests created during implementation and determine if any of them are trivial or superfluous. The goal is the keep the test suite clean and targeted. Lay this step out clearly in all implementation plans.
 
 ## Output discipline
 
