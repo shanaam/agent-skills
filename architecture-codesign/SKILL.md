@@ -145,7 +145,7 @@ These implementation\_plan.mds are usually gitignored. Ask the user if one exist
 
 **Required structure:**
 
-A note on in-line comments (include briefly in the implementation plan): comments should not be verbose -- if they are more than two lines, consider moving them to memory or as part of a relevant ADR. Comments should primarily explain "why" a certain step in the code is formatted. Explanations of "how" should be saved for non-intuitive cases and should be fairly rare. 
+A note on comments in code (include briefly in the implementation plan): comments should not be verbose -- if they are more than two lines, consider moving them to memory or as part of a relevant ADR. Comments should primarily explain "why" a certain step in the code is formatted. Explanations of "how" should be saved for non-intuitive cases and should be fairly rare. 
 
 
 1. **ADR review checkbox at the very top.** If the work happens inside an existing repository, the first item in the plan must be a checkbox instructing the implementer to look for existing Architecture Decision Records:
