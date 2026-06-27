@@ -176,6 +176,8 @@ This is the first gate before any execution. Existing ADRs may invalidate assump
    If yes: draft the ADR, \\\*\\\*get explicit user approval before committing it\\\*\\\*, then add it to the repo's ADR directory. Number it sequentially following the highest existing ADR number in the repo.
    ```
 
+Write a short reminder at end of phases to not mention the implementation plan or Phases in comments, adrs, and other docs. Implementation plan is gitignored and readers will not have knowledge of it.
+
 5. **Do not pre-number new ADRs.** Where the plan references ADRs that don't yet exist, refer to them by topic only — e.g., "*ADR: CI platform choice*" or "*ADR: monorepo vs polyrepo*" — never "ADR-0007: CI platform choice". The actual number is assigned at write-time, after the implementer has checked what ADRs already exist in the repo. Pre-numbering creates conflicts and incorrect cross-references.
 
    The implementation plan is the most likely artifact a user will accept on first offer — surface it explicitly when offering to draft artifacts, separately from the documentation set.
@@ -206,7 +208,7 @@ This is the first gate before any execution. Existing ADRs may invalidate assump
 * Skipping the playback before proposal.
 * Ending without an artifacts list.
 * Auto-generating every artifact instead of offering.
-* Mentions of Phases or implementation plan in ADRs you write. Readers shouldn't need knowledge of the implementation plan.
+* Mentioning Phases or the implementation plan in ADRs, comments and other docs. Readers shouldn't need knowledge of the implementation plan.
 * Any git actions like commits or pushes.
 
   ## Worked example: "Help me set up CI/CD for our ML platform repo"
