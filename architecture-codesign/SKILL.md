@@ -206,6 +206,8 @@ This is the first gate before any execution. Existing ADRs may invalidate assump
 * Skipping the playback before proposal.
 * Ending without an artifacts list.
 * Auto-generating every artifact instead of offering.
+* Mentions of Phases or implementation plan in ADRs you write. Readers shouldn't need knowledge of the implementation plan.
+* Any git actions like commits or pushes.
 
   ## Worked example: "Help me set up CI/CD for our ML platform repo"
 
