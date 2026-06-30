@@ -175,6 +175,7 @@ This is the first gate before any execution. Existing ADRs may invalidate assump
 
    - \\\[ ] \\\[concrete task]
    - \\\[ ] \\\[concrete task]
+   - \\\[ ] End-of-phase static-analysis check (see below)
    - \\\[ ] End-of-phase ADR check (see below)
    ```
 
@@ -186,7 +187,26 @@ This is the first gate before any execution. Existing ADRs may invalidate assump
 
    Do not blanket-recommend TDD for every phase. Skip the note for trivial scaffolding, config edits, dependency bumps, or exploratory work where the design isn't yet stable enough for tests to be meaningful.
 
-5. **End-of-phase ADR reasoning step.** Every phase ends with an explicit instruction to evaluate whether a new ADR is warranted:
+5. **End-of-phase static-analysis fix step.** Every phase ends with an explicit instruction to clear static-analysis errors for every file the phase created or modified. Treat linting and type checking as **distinct passes**, because they catch different problems and are often enforced differently:
+
+   * **Linting** (e.g., Ruff, ESLint) — style, code smells, and some correctness rules. If the repo enforces this via pre-commit hooks or CI, it is largely guaranteed already; the end-of-phase step only needs to confirm nothing is being suppressed or bypassed.
+   * **Type checking** (e.g., Pyright, mypy, `tsc`) — static type analysis. This is usually *not* gated by pre-commit hooks, so it is the pass most likely to accumulate silent errors and the main reason this step exists. Run it explicitly.
+
+   Cover both, including pre-existing errors in touched files — leaving a touched file dirty pushes cleanup onto a later session with less context. State this in the plan with the repo's actual tooling named:
+
+   ```markdown
+   ### End-of-phase static-analysis check
+
+   For every file created or modified in this phase, clear all static-analysis errors — including pre-existing ones — across both passes:
+   - **Lint:** \\\[the repo's linter, e.g. Ruff]. (Enforced by pre-commit hooks here, so mainly verify nothing was suppressed or `# noqa`'d to get around it.)
+   - **Type check:** \\\[the repo's type checker, e.g. Pyright]. Run it explicitly — it is not gated by the hooks.
+
+   Do not leave a touched file with outstanding errors. If a pre-existing error genuinely should not be fixed here (e.g., it needs a separate decision), note why inline rather than silently skipping it.
+   ```
+
+   Name the concrete tools the repo uses rather than leaving it generic — check for config such as `pyrightconfig.json`, `ruff.toml`, `.eslintrc`, `mypy.ini`, or the relevant `pyproject.toml` / `package.json` sections (and any `.pre-commit-config.yaml`) when writing the plan. If a repo has no type checker configured at all, say so and drop that pass rather than inventing one.
+
+6. **End-of-phase ADR reasoning step.** Every phase ends with an explicit instruction to evaluate whether a new ADR is warranted:
 
    ```markdown
    ### End-of-phase ADR check
@@ -203,11 +223,11 @@ In the implementation plan, write a short reminder to not mention the implementa
 
 Also, write a reminder to keep each sentence to its own line in created markdown files (e.g., ADRs and docs).
 
-6. **Do not pre-number new ADRs.** Where the plan references ADRs that don't yet exist, refer to them by topic only — e.g., "*ADR: CI platform choice*" or "*ADR: monorepo vs polyrepo*" — never "ADR-0007: CI platform choice". The actual number is assigned at write-time, after the implementer has checked what ADRs already exist in the repo. Pre-numbering creates conflicts and incorrect cross-references.
+7. **Do not pre-number new ADRs.** Where the plan references ADRs that don't yet exist, refer to them by topic only — e.g., "*ADR: CI platform choice*" or "*ADR: monorepo vs polyrepo*" — never "ADR-0007: CI platform choice". The actual number is assigned at write-time, after the implementer has checked what ADRs already exist in the repo. Pre-numbering creates conflicts and incorrect cross-references.
 
    The implementation plan is the most likely artifact a user will accept on first offer — surface it explicitly when offering to draft artifacts, separately from the documentation set.
 
-7. **Test clean up.** Review all tests created during implementation and determine if any of them are trivial or superfluous. The goal is the keep the test suite clean and targeted. Lay this step out clearly in all implementation plans.
+8. **Test clean up.** Review all tests created during implementation and determine if any of them are trivial or superfluous. The goal is the keep the test suite clean and targeted. Lay this step out clearly in all implementation plans.
 
    ## Output discipline
 
