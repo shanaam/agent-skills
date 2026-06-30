@@ -148,7 +148,19 @@ These implementation\_plan.mds are usually gitignored. Ask the user if one exist
 A note on comments in code (include briefly in the implementation plan): comments should not be verbose -- if they are more than two lines, consider moving them to memory or as part of a relevant ADR. Comments should primarily explain "why" a certain step in the code is formatted. Explanations of "how" should be saved for non-intuitive cases and should be fairly rare. 
 
 
-1. **ADR review checkbox at the very top.** If the work happens inside an existing repository, the first item in the plan must be a checkbox instructing the implementer to look for existing Architecture Decision Records:
+1. **Design decisions section at the very top.** The plan opens with a `## Design decisions` section that concisely captures the decisions reached during the codesign process — the primary recommendation, the rejected alternatives and why, the hard constraints and tradeoff priorities that drove them, and anything explicitly ruled out of scope. Keep it tight: one line per decision, enough that a fresh agent picking up the plan in a later session understands *what was decided and why* without re-reading the whole conversation. This section is reference context, not an execution step — it sits above the ADR checkbox and is never checked off.
+
+```markdown
+   ## Design decisions
+
+   - **\\\[Decision]:** \\\[what was chosen] over \\\[alternative], because \\\[one-line rationale tied to a constraint or tradeoff priority].
+   - **\\\[Decision]:** …
+   - **Out of scope (for now):** \\\[list].
+   ```
+
+   This is the anchor for agent-session hand-offs: it lets a later session reconstruct the reasoning without re-litigating settled choices. If a decision changes mid-implementation, update this section rather than letting it drift.
+
+2. **ADR review checkbox.** If the work happens inside an existing repository, the first actionable item in the plan (immediately below the Design decisions section) must be a checkbox instructing the implementer to look for existing Architecture Decision Records:
 
 ```markdown
    - \\\[ ] Read through existing ADRs in this repository (typically under `docs/adr/`, `docs/decisions/`, `architecture/decisions/`, or search the repo for `adr` / `ADR-`). If any existing ADR constrains, contradicts, or otherwise affects this plan, document the implied plan changes inline below before proceeding past this checkbox.
@@ -156,14 +168,25 @@ A note on comments in code (include briefly in the implementation plan): comment
 
 This is the first gate before any execution. Existing ADRs may invalidate assumptions in the plan or require modifications. Do not proceed past the checkbox without checking it off.
 
-2. **Phased work breakdown.** Group the work into coherent phases (e.g., "Phase 1: Repo restructure", "Phase 2: CI scaffolding", "Phase 3: Test suite migration"). Each phase should be independently reviewable and, where possible, independently shippable.
-3. **Test-driven development cross-reference where appropriate.** For each phase, judge whether test-first development genuinely fits — non-trivial new functionality with a clear-enough spec, in a repo with a test framework already configured. Where it fits, add an explicit note in the phase:
+3. **Phased work breakdown, in checkbox format.** Group the work into coherent phases (e.g., "Phase 1: Repo restructure", "Phase 2: CI scaffolding", "Phase 3: Test suite migration"). Each phase should be independently reviewable and, where possible, independently shippable. Every concrete task within a phase is a markdown checkbox so progress is trackable across agent sessions — a later session can see at a glance what is done and what remains. Use a checkbox for the phase header too, checked off only when all its tasks are complete:
+
+```markdown
+   ## Phase 1: \\\[name]
+
+   - \\\[ ] \\\[concrete task]
+   - \\\[ ] \\\[concrete task]
+   - \\\[ ] End-of-phase ADR check (see below)
+   ```
+
+   Instruct the implementer to check tasks off as they land, so the plan stays an accurate hand-off record rather than going stale.
+
+4. **Test-driven development cross-reference where appropriate.** For each phase, judge whether test-first development genuinely fits — non-trivial new functionality with a clear-enough spec, in a repo with a test framework already configured. Where it fits, add an explicit note in the phase:
 
 > \\\*Consider invoking the `test-driven-development` skill for this phase — the work involves \\\[building X / refactoring Y / adding Z], a test framework is in place, and the spec is concrete enough for tests-first.\\\*
 
    Do not blanket-recommend TDD for every phase. Skip the note for trivial scaffolding, config edits, dependency bumps, or exploratory work where the design isn't yet stable enough for tests to be meaningful.
 
-4. **End-of-phase ADR reasoning step.** Every phase ends with an explicit instruction to evaluate whether a new ADR is warranted:
+5. **End-of-phase ADR reasoning step.** Every phase ends with an explicit instruction to evaluate whether a new ADR is warranted:
 
    ```markdown
    ### End-of-phase ADR check
@@ -180,11 +203,11 @@ In the implementation plan, write a short reminder to not mention the implementa
 
 Also, write a reminder to keep each sentence to its own line in created markdown files (e.g., ADRs and docs).
 
-5. **Do not pre-number new ADRs.** Where the plan references ADRs that don't yet exist, refer to them by topic only — e.g., "*ADR: CI platform choice*" or "*ADR: monorepo vs polyrepo*" — never "ADR-0007: CI platform choice". The actual number is assigned at write-time, after the implementer has checked what ADRs already exist in the repo. Pre-numbering creates conflicts and incorrect cross-references.
+6. **Do not pre-number new ADRs.** Where the plan references ADRs that don't yet exist, refer to them by topic only — e.g., "*ADR: CI platform choice*" or "*ADR: monorepo vs polyrepo*" — never "ADR-0007: CI platform choice". The actual number is assigned at write-time, after the implementer has checked what ADRs already exist in the repo. Pre-numbering creates conflicts and incorrect cross-references.
 
    The implementation plan is the most likely artifact a user will accept on first offer — surface it explicitly when offering to draft artifacts, separately from the documentation set.
 
-6. **Test clean up.** Review all tests created during implementation and determine if any of them are trivial or superfluous. The goal is the keep the test suite clean and targeted. Lay this step out clearly in all implementation plans.
+7. **Test clean up.** Review all tests created during implementation and determine if any of them are trivial or superfluous. The goal is the keep the test suite clean and targeted. Lay this step out clearly in all implementation plans.
 
    ## Output discipline
 
