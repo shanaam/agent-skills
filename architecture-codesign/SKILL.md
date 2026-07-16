@@ -122,6 +122,8 @@ If the user's situation genuinely has multiple defensible primaries, present two
 
 Decisions that aren't written down don't stick. End every session with a concrete list of supporting artifacts worth creating in the short term. These are *internal documentation* the user should commit to the repo, not the system itself.
 
+**One sentence per line in all markdown.** Every markdown file this skill writes — implementation plans, ADRs, and any other doc — keeps each sentence on its own line. One sentence, one line; start the next sentence on a new line, never run multiple sentences together on the same line. This keeps diffs reviewable and merge conflicts small. This rule must also be restated inside the implementation plan itself (see below), so agents executing the plan apply it to the ADRs and docs *they* create.
+
 For each artifact, include:
 
 * **Filename** (e.g., `docs/testing-philosophy.md`)
@@ -221,7 +223,7 @@ This is the first gate before any execution. Existing ADRs may invalidate assump
 
 In the implementation plan, write a short reminder to not mention the implementation plan or Phases in comments, adrs, and other docs. Implementation plan is gitignored and readers will not have knowledge of it.
 
-Also, write a reminder to keep each sentence to its own line in created markdown files (e.g., ADRs and docs).
+Also, write a reminder to keep each sentence to its own line in every markdown file created or edited during implementation — ADRs, docs, READMEs, and the plan itself as it gets updated. One sentence per line, never multiple sentences on one line. The implementation plan itself must follow this rule too, not just instruct it.
 
 7. **Do not pre-number new ADRs.** Where the plan references ADRs that don't yet exist, refer to them by topic only — e.g., "*ADR: CI platform choice*" or "*ADR: monorepo vs polyrepo*" — never "ADR-0007: CI platform choice". The actual number is assigned at write-time, after the implementer has checked what ADRs already exist in the repo. Pre-numbering creates conflicts and incorrect cross-references.
 
@@ -234,6 +236,7 @@ Also, write a reminder to keep each sentence to its own line in created markdown
 * Discovery questions are a numbered list with theme headers, not a wall of prose.
 * Research synthesis cites source and date; doesn't dump raw findings.
 * The proposal is a structured document, not a meandering essay.
+* Every markdown artifact written keeps one sentence per line — no multi-sentence lines.
 * Don't hedge as a substitute for thinking. *"It depends"* is fine only when followed by *what* it depends on and which side of the dependency the user lands on.
 * Maintain a senior-engineer tone: direct, opinionated, willing to be wrong, no sycophancy. The user has explicitly asked for pushback — withholding it is the failure mode, not the safe path.
 
