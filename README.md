@@ -12,3 +12,9 @@ a collection of curated agent skills for personal workflows
    OR
    
    ln -s ~/dev/agent-skills ~/.claude/skills
+
+# Templates
+[templates/](templates/) holds starter files to copy into the root of any new project.
+Copy `AGENTS.md` and `CLAUDE.md` together so the `@AGENTS.md` import in `CLAUDE.md` resolves.
+`AGENTS.md` is the single source of truth for agent rules shared across agent tools; `CLAUDE.md` is just a pointer that imports it, since Claude Code reads `CLAUDE.md` rather than `AGENTS.md`.
+See [templates/README.md](templates/README.md) for details.
