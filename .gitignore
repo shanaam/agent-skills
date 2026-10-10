@@ -1,2 +1,6 @@
 # Windows "mark of the web" download artifacts (WSL/NTFS)
 *Zone.Identifier
+
+# Claude Code writes these into ~/.claude/skills, which is this repo
+synced/
+.trash/
