@@ -8,7 +8,7 @@ Keep the generated SKILL.md under about 150 lines; the per-feature detail lives 
 Contents:
 
 - Frontmatter notes
-- The skeleton
+- The skeleton (Launch, Self-check, Doctor, Drive with the suite, Live tier, Evidence, Cleanup, Helpers, Feature map, Maintaining)
 - Helper placement
 - The maintenance section, verbatim
 
@@ -41,9 +41,20 @@ description: Drives <app> (<surface>, under <path>) the way a user does and capt
 - Isolation: <two instances can run with <ports or data directories> / only one instance can run, so never drive one this run did not start>.
 - Dependencies: <the emulator, fake, replay source, or dry-run mode, started first and how>; <what only the real dependency proves>.
 - Record at launch what cleanup needs: <the pid, the handle, the data directory, the run id>.
+- State outside the app that a drive changes (<saved options, a config file, a profile>) is copied aside by the launch helper and put back when the run ends; the launch record lists what was preserved and what was restored.
 - Fresh machine: <the one-time step, such as registering the driver MCP server for the agent, and the doc that holds it>; `<doctor recipe>` then proves the whole path.
 
 _Launch for a short-lived CLI means build once, then run each drive in its own isolated session; there is no server to keep alive._
+
+## Self-check
+
+`python ${CLAUDE_SKILL_DIR}/scripts/selfcheck.py` (recipe `just <app>-verify-check`) says whether the map still matches the app, without launching anything; run it before the first drive of a run, at the end of a plan's docs phase, and whenever a recipe fails on an app that should not have changed.
+
+- It exits 0 when every feature file is indexed and in the four-section shape, every `Proof` bullet names a steps file that exists, every steps file is named somewhere, and every user-facing source file (<the globs>) is claimed by some feature's `Sources:` line.
+  A new screen, dialog, or control therefore fails it until a feature file claims the file.
+- It warns about features whose claimed sources changed after their `driven on` date and about visible copy no feature file or steps file quotes; `--strict` turns the first into a failure for a maintenance pass.
+- `--hook` runs only the deterministic part; the pre-commit hook `<hook id>` runs it when <the app's source globs> or this directory change.
+- A failure means the map is behind the app, not that the app is broken: add or update the feature file, then drive it.
 
 ## Doctor
 
@@ -63,7 +74,27 @@ _The doctor answers "is this instance worth driving?", so it checks identity and
 - Stable handles: <widget keys / accessible names / route paths / prompt strings / endpoints>, listed per feature in `features/`; never coordinates or tab order.
 - Shorthand used in feature files is defined once in `features/README.md` under Driving conventions.
 - Reset to a known state between features: <how>.
+- The suite: `python ${CLAUDE_SKILL_DIR}/scripts/suite.py --run <run>` drives every recipe in the order `scripts/steps/suite.txt` gives, with the resets where the recipes' preconditions want them (<the chained pair, or "a reset before each">), writes each feature's `walkthrough.md`, recovers after a failed recipe, and ends with `<run>/suite.md`; `--only <ids>` narrows it.
+  Use the suite for a maintenance pass and for a plan that touched several features, and the driver alone while iterating on one recipe.
 - Interactive-only steps: <list, or "none">; everything else runs headless.
+
+## Live tier
+
+_Only when a fake, emulator, or dry-run stands in for a real system (a device, a pipeline, a service); otherwise delete this section._
+
+- What the fakes stand in for: <the real system and how it is launched for a live check>, with `features/<live-feature>.md` as the recipe and the probes under `scripts/live/` measuring it through its own API (<cadence, latency, counters>), each with the expected numbers and the first measured ones.
+- Every live pass starts with the environment baseline (<the probes to run and the healthy numbers>) saved under `<run>/live/baseline/`, so a recipe that fails on a degraded link or a slow service is classified as environment before product.
+- The transitions the fidelity register in `features/README.md` sends here (<a take, a reconnect, a stream stopped and resumed>) are driven on the real system, because that is where it and the fake differ.
+- A live recipe that acts on the real system (<runs a take, retargets a device>) runs only when the author has asked for a live check.
+
+## Offline tier
+
+_Only when the app, or the stack it launches, has edges that leave the machine and is run where the network may be absent or half-working; otherwise delete this section._
+
+- The edges: <each process on the launch path that opens an off-machine connection, and why>, each a row in the fidelity register.
+- Method: a launch on a machine warmed by an earlier online run, with egress refused rather than absent (<the offline flags, a proxy pointed at a tripwire listener that logs and refuses every attempt>), driven through <the suite's launch recipe>; a half-working network is the case to model, so refusal beats disconnection.
+- The gate: <the recipe that runs it and exits non-zero> on any logged attempt or on health not reached, with the tripwire's log and the launch log under `<run>/offline/`.
+- Mandatory for any change that touches <the launch path, model loading, a server, a network client, runtime assets>, reported beside the fake and live tiers.
 
 ## Evidence
 
@@ -72,6 +103,9 @@ _The doctor answers "is this instance worth driving?", so it checks identity and
 - Per feature: a `walkthrough.md` naming each artifact, what it shows, what was expected, and the exact commands that produced it.
 - Record the build: <how the build identity is read> goes into `walkthrough.md` with the date.
 - Proof standards: the real user path, not internal setters or test-only endpoints; the action and the resulting state, not only the final screen; side effects checked (<files, rows, messages>) beside what is visible; mocks only at <the production boundary that already isolates the external system>; a dry-run or test mode verified by observing what it skips.
+- Second views: a state the screen mirrors from <the backend> is read a second time from the backend's own side (<the status endpoint, a pane row, a CLI query>); `features/README.md` lists the pairs.
+  The screen's own label passes on the fake because the fake is the app's idea of the backend.
+- Transitions: a feature proven from the baseline says nothing about the same feature after <a take, a reconnect, the device coming off>; the fidelity register names them, each recipe drives at least one the fake can do, and the live tier drives the rest.
 - Evidence is positive and fresh: every artifact newer than the build, non-empty, and containing the expected text.
 
 ## Cleanup
@@ -86,13 +120,15 @@ _The doctor answers "is this instance worth driving?", so it checks identity and
 - `<drivable entry point>`: the debug-only build the driver talks to, launched by `<launch recipe>`; never the release target, and its dependency is declared where it cannot ship.
 - `<launch recipe>` and `<doctor recipe>`: in the task runner, documented in `<commands doc>`; the per-machine registration of `<driver server>` for the agent is in `<contributing doc>`.
 - `<recipe or script>`: <what it does>, run as `<exact invocation>`. <Why it exists; when it is scaffolding in product code, say so and say what it must never do in a release build.>
+- `${CLAUDE_SKILL_DIR}/scripts/suite.py --run <run> [--only <ids>]` with `scripts/steps/suite.txt`: the recipes in their chaining order with the resets between them, one `walkthrough.md` per feature and `<run>/suite.md` at the end.
+- `${CLAUDE_SKILL_DIR}/scripts/selfcheck.py [--strict|--hook]` (recipe `just <app>-verify-check`, hook `<hook id>`): the map against the app, as described under Self-check; it reads files and git only.
 
 ## Feature map
 
-`features/README.md` is the index: baseline preconditions, driving conventions, proof rules, the navigation diagram, and one line per feature.
-Each feature file has four sections in a fixed order: `Sub-features`, `How to get to it (user POV)`, `Driving it with <harness>`, `Gotchas`.
+`features/README.md` is the index: baseline preconditions, driving conventions, proof rules, the second views, the fidelity register (what the fakes do not model and the transitions that need the live tier), the navigation diagram, and one line per feature.
+Each feature file has four sections in a fixed order: `Sub-features`, `How to get to it (user POV)`, `Driving it with <harness>`, `Gotchas`, and a `Sources:` line under its `Status:` naming the app source that renders it, which the self-check uses to claim every user-facing file and to flag the feature as stale when those files change after its last drive.
 A proof that drives one convenient entry point is incomplete when the map lists others.
-Add or update a feature file in the same change that adds or changes the feature, and reset its `Status:` line to drafted until a run drives it.
+Add or update a feature file in the same change that adds or changes the feature, with its `Sources:` line and its steps file, add it to `scripts/steps/suite.txt`, reset its `Status:` line to drafted until a run drives it, and run the self-check before handing the change over.
 
 ## Maintaining this skill
 
@@ -103,6 +139,10 @@ Add or update a feature file in the same change that adds or changes the feature
 
 - When the repository has a task runner, the helper is a recipe in it and the skill references the recipe; the recipe keeps the venv, the flags, and the paths right when they change.
 - Scripts the skill ships go under `scripts/`, in the language the repository uses for tooling, executable, invoked as shown in the skill body, and referenced as `${CLAUDE_SKILL_DIR}/scripts/<name>` so they resolve from any working directory.
+- `scripts/selfcheck.py` starts from [selfcheck-template.py](selfcheck-template.py): fill in the surface globs, the visible-string patterns for the app's UI toolkit, and the driving H2's harness name, keep the exit codes, and give it a recipe and a pre-commit hook (`--hook`, filtered to the app's source and the skill directory, `pass_filenames: false`).
+- `scripts/suite.py` with `scripts/steps/suite.txt`: the manifest lists `<feature-id> <steps-file>` lines and `reset` lines; the runner drives them in order through the driver, writes each walkthrough, recovers with the reset recipe after a failure, and writes `<run>/suite.md`.
+  The org-repo `verify-demo-app` skill ships one to copy; it depends only on the driver's exit codes (0 pass, 1 a failed step, 2 unreachable) and `result.json`.
+- The launch helper copies aside the files a drive changes outside the app and restores them when the run ends, recording both in the launch record.
 - Commands written for the author to run go in the author's shell syntax; in this family that is PowerShell, without `&&`.
 - A debug-only entry point that enables a driver extension lives beside the app's `main`, is named for what it is (`main_driver.dart`, `--driver`), and never becomes the release entry point.
 
@@ -111,14 +151,16 @@ Add or update a feature file in the same change that adds or changes the feature
 ```markdown
 ## Maintaining this skill
 
-A feature map rots the moment the app changes, so run a maintenance pass when a feature file's recipe fails on an unchanged app, after a plan that touched several features, after a release, or on a cadence the team chooses.
+A feature map rots the moment the app changes, so run a maintenance pass when the self-check reports a stale or unclaimed surface, when a feature file's recipe fails on an unchanged app, after a plan that touched several features, after a release, after a live incident the map did not predict, or on a cadence the team chooses.
 
 - Edit scope is this directory and the helpers it owns; never product code during a pass.
   A behaviour the map describes that the app no longer does is either doc drift (fix the map) or a product regression (report it); never paper over a regression in the docs.
-- Index hygiene first: read `features/README.md`, list its sibling files, and fix missing, extra, duplicate, or dead entries.
+- Self-check first: `python ${CLAUDE_SKILL_DIR}/scripts/selfcheck.py --strict` lists the unclaimed surfaces, the stale features, and the unquoted copy; each unclaimed surface becomes a feature file or a `Sources:` line, each stale feature goes on the drive list, and each unquoted string is either a sub-feature the map lacks or copy inside one it has.
+- Index hygiene: read `features/README.md`, list its sibling files, and fix missing, extra, duplicate, or dead entries the self-check could not judge.
 - Source wave: one read-only subagent per feature file, launched together, each explaining how that user-facing feature works from source and returning a summary, the source entry points, likely drift with citations or none, and one live recipe; subagents never drive the app and never edit files.
 - Reconcile: merge overlapping recipes into as few app states as practical, spot-check cited drift, and sweep recent churn for user-facing surfaces missing from the map, requiring a concrete source path before calling one missing.
-- Live pass, required even when source looks clean: the coordinating session drives every feature at least once under this skill's own Launch model, with the doctor before the first drive and after any failed drive, evidence surviving every cleanup at its named location, and residue from failed drives cleaned whether the session is stuck, exited, or shared.
+- After a live incident: name the fake's gap in the fidelity register, add the probe or the transition that would have shown it, and record the measured numbers in the live feature file; a gap the register names is one a plan's verification phase sends to the live tier.
+- Live pass, required even when source looks clean: the coordinating session drives every feature at least once under this skill's own Launch model (the suite for the fake tier, then the live tier when the author has asked for a live check), with the doctor before the first drive and after any failed drive, evidence surviving every cleanup at its named location, and residue from failed drives cleaned whether the session is stuck, exited, or shared.
   A feature is `verified-unreachable` only with the concrete prerequisite (auth, entitlement, OS, device, external state) and the route attempted; if the map omitted that prerequisite, that is drift.
 - Triage: a wrong or missing user-POV description is doc drift, fix it; working behaviour the harness cannot drive is a harness gap, fix it and re-drive before it ships; app behaviour that is broken is a product gap, record it for the author and keep it out of this change.
 - Outcome, stated plainly: `clean` (every feature covered from source and live, nothing to ship), `changed` (one change set of proven corrections, re-read before hand-off, committed by the author), or `blocked` (coverage could not finish or a fix could not ship safely, with exactly what blocked it).

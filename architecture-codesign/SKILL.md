@@ -172,6 +172,7 @@ What the structure guarantees, and why each part is there:
 
 1. **Design decisions at the very top.** One bullet per decision: what was chosen, over which alternative, for which reason tied to a constraint or priority, plus the out-of-scope list, and a target-architecture diagram with the added or changed nodes highlighted.
    Say which decisions get a mechanical guard (a lint rule, a structural test, a hook) and which stay advisory, since a sentence in a rules file only shifts the odds.
+   Say which `verify-<app>` features the plan adds or changes and which tier proves each (the Verifier impact line), read off the map's fidelity register, so the docs phase knows which feature files to touch and the verification phase knows which journeys the fake cannot prove.
    A later session reads this to avoid re-litigating settled choices; if a decision changes mid-implementation, this section is updated rather than left to drift.
 2. **A conventions block** restating the rules execution depends on: one sentence per line in markdown, no mention of the plan in repo documents, short "why" comments, no commits, no time estimates, the parallel-sessions check, tests as a read-only contract, no additions beyond the task, and any repo-specific rebuild step.
    The executing session may be running with less context than the planning session, so the rules travel with the plan rather than being appended to CLAUDE.md, which stays short and pointer-like.
@@ -183,15 +184,22 @@ What the structure guarantees, and why each part is there:
 5. **Phase 0 for approvals, naming, and baseline.** Record the test-suite baseline so a later regression is distinguishable from a pre-existing failure, record a performance baseline when a hot path will change, and queue every approval the work needs (rules-file edits, cloud writes, hardware) rather than blocking on it.
    Name the riskiest assumption in the design and the cheapest spike that tests it, run the spike before the phase that depends on it, and put a re-plan checkpoint there; the plan is a learning artifact, and implementation is allowed to change it.
 6. **Phases sized to a reviewable change, each with a diagram of what it changes.** A phase boundary is a point where a human can review and a check can run, not a context-window budget; a phase that touches many unrelated files or cannot be described in one sentence is two phases.
+   Cut the phases as thin end-to-end slices that widen, not as layers (every model, then every route, then every screen), because a layer only passes its checks with a bridge to the layers that do not exist yet: a shim, a flag, a default, a placeholder, a second path kept alive.
+   A bridge is complexity the plan added rather than the design, and it outlives the plan more often than it is removed.
+   A phase may land code nothing calls yet, which the next phase wires, but never a bridge a later phase deletes; a phase that reaches green only with one is the wrong cut, so merge it with its neighbour or move the boundary.
+   Where a bridge is unavoidable (a migration that must serve both shapes for one phase), the phase's Scaffolding line names it and the later task that removes it, so the whole-plan simplicity pass in the docs phase can check that it is gone.
+   Fewer, fuller phases also keep the plan short, as long as each stays one reviewable change; every boundary costs a review, a checks run, and a hand-off.
    Each phase starts with the files it touches, the existing modules it must reuse, and a "done when" line stated as what a maintainer would accept, not as green tests; each task is stated as an observable result.
    When a task is checked, one line under it records what landed and any deliberate deviation with its reason, so the plan stays a truthful record.
 7. **A TDD cross-reference where it fits.** For a phase with non-trivial new behaviour, a concrete spec, and a test framework in place, add the italic note pointing at the `tdd` skill, and state the expected behaviour in the plan independently of any implementation, because tests derived from the implementation inherit its bugs.
    Tests-first earns its cost only where the behaviour has a clear contract; mandated everywhere, agents fake the red step and write tautological tests at several times the token cost, so elsewhere the sensors are lint, types, and the assertion check in test cleanup.
    Skip it for scaffolding, config edits, dependency bumps, and exploratory work where the design is not stable enough for tests to mean anything.
-8. **Recurring checks written once, referenced per phase.** Every phase ends with the static-analysis check (lint and type check as distinct passes, named with the repo's actual tools, type checking run explicitly because hooks rarely gate it, pre-existing errors in touched files cleared too) and the ADR check (does any decision from this phase deserve an ADR or an addendum).
+8. **Recurring checks written once, referenced per phase.** Every phase ends with the static-analysis check (lint and type check as distinct passes, named with the repo's actual tools, type checking run explicitly because hooks rarely gate it, pre-existing errors in touched files cleared too), the simplicity and maintainability check (what a maintainer would delete from the phase's diff, deleted in the same phase, with the repository's `simplify` skill where one exists), and the ADR check (does any decision from this phase deserve an ADR or an addendum).
    Check the repo's lint and type-check configuration before naming the tools; if there is no type checker, say so and drop that pass.
    A phase that touches input handling, logging, auth, or crypto also carries the repo's security scanner and the relevant weakness classes as acceptance criteria, because generated code fails those at a high rate regardless of model.
-9. **A phase for ADRs, docs, and test cleanup.** Test cleanup means listing every test the plan added and removing the trivial or duplicate ones, with an example of what trivial means in that repo, and recording what was removed or that nothing was.
+   The per-phase simplicity check reads one diff at a time, so it keeps whatever the phase order made necessary; the whole-plan pass that opens the docs phase is where that is caught.
+9. **A phase for the whole-plan simplicity pass, ADRs, docs, and test cleanup.** The pass comes first: re-read the plan's whole diff against the base branch as one change landing at once, and rewrite what only the phase order explains (a bridge a later phase was to remove, the old path still reachable where the new one was to replace it, a seam added so one phase could be tested before the next existed, helpers that restate each other across parallel-safe tasks, a test of a state a later phase changed), then check every Scaffolding line is empty.
+   Test cleanup means listing every test the plan added and removing the trivial or duplicate ones, with an example of what trivial means in that repo, and recording what was removed or that nothing was.
    The target-architecture diagram moves into the doc that owns that part of the system.
    When the work ships, what must survive moves into ADRs, docs, tests, schemas, and CI rules; the plan stays as a gitignored record of what happened, and nothing in the repository or in later work depends on it, so the repository never carries a second codebase in prose.
 10. **A verification phase**, described under Phase 7 below, that ends with the human test.
@@ -222,6 +230,7 @@ When the user picks one, write it where it belongs in the repository, following 
 Execution is its own skill, `plan-execution`, in the sibling directory of this one.
 It carries the session startup routine, the model and effort choice per phase, when to fan out subagents or worktrees, the test-integrity and evidence rules, checking off with deviations, and the hand-off, and it reads this skill's reference files.
 The codesign session's job is to leave a plan that skill can execute cold: the conventions block, the repository facts, the done-when lines, the evidence contract, and the unattended run conditions are what it relies on.
+The executing session also sheds context at phase boundaries, by a compaction or a fresh session under that skill's Context hygiene, so the record a phase leaves in the plan has to carry what the next phase needs, and nothing the next phase depends on may live only in the conversation.
 When a session opens with a plan to act on, invoke `plan-execution` rather than this skill.
 
 ## Phase 7: Verification and the human test
@@ -236,10 +245,13 @@ Evidence lives under `<descriptive_name>_verification/<YYYY-MM-DD>/`, gitignored
 - **Convergence audit.** Before the walkthrough, read the code against the design decisions and classify every gap as missing, partial, contradicting, or unrequested; each becomes a task appended to the plan, never a silent fix, and more than two loops of this means the design was vague.
 - **Agent-as-user walkthrough.** Drive the changed application the way a user would, through the repository's `verify-<app>` skill when one exists, with its feature file for each changed journey as the recipe, otherwise through the tool that fits the app type.
   When no `verify-<app>` skill exists, the plan's Phase 0 creates one with the sibling `create-verification-skill`, because a verification phase without a harness is prose, and the docs phase updates the feature map for every feature the plan changed.
+  The skill's self-check gates the map itself: it exits 0 at the start of the phase (every surface the plan added has a feature file) and its stale warnings are the drive list.
+  Each journey carries a tier from the map's fidelity register: a change that touches a gap the fake has is proven on the live tier against the real system, with the backend's own reading as the observable, because a recipe on the fake passes before and after such a bug; the journeys include the feature after the transitions its map file names, not only from the baseline.
+  When the skill has an offline tier (the app or the stack it launches has edges that leave the machine), a change in that tier's mandatory set runs it and reports it beside the other two.
   Wait for the post-condition before each capture, save the state text beside the image, and write a `walkthrough.md` naming each screenshot, what it shows, and what was expected.
   Evidence is positive and fresh: new since the build, non-empty, and containing the expected content, with the build it came from recorded in the index.
 - **Performance evidence when a process changed.** When a phase touched a hot path, profile the new build under the same load as the Phase 0 baseline and save the flame graph beside the baseline's, with a one-line reading of the pair.
-- **Fresh eyes.** Hand the diff, the plan's acceptance criteria, and the evidence folder to a verifier session or subagent that did not write the code, and ask it to flag only gaps that affect correctness or the stated requirements.
+- **Fresh eyes.** Hand the diff, the plan's acceptance criteria, and the evidence folder to a verifier session or subagent that did not write the code, and ask it to flag gaps that affect correctness or the stated requirements and, with the same weight, anything that leaves the code harder to understand or change than the design needed.
   A verifier told to find problems will find some; chasing every finding produces defensive code and tests for cases that cannot happen.
 - **The human test, last.** Give the user one to three commands in their shell, in order, each with what to expect and the single observation that means it passed.
   Fewer commands is better; the agent has already done the long walkthrough, and the human test exists to confirm it on the user's own machine and eyes.
@@ -280,6 +292,7 @@ Record the settled design and the progress in memory at the end of a codesign se
 - Pre-numbering ADRs, or mentioning the plan or its phases in anything committed.
 - Time estimates in plans.
 - Phases cut by context budget instead of by review points.
+- Phases cut as layers, each made to stand alone with a bridge the next phase deletes.
 - Appending plan conventions to CLAUDE.md instead of carrying them in the plan.
 - Declaring the work verified on green tests alone, with no walkthrough evidence and no human test.
 - Any git commit or push.

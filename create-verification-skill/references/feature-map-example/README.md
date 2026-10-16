@@ -31,14 +31,36 @@ The app is invented; copy the shape of this map, not its content.
 - Record the feature id, the entry point used, and the build id with every artifact in that feature's `walkthrough.md`.
 - Report an unreachable path with the attempted command and the unmet precondition.
 - Do not report a skipped entry point as verified through a different path.
+- A state the screen mirrors from the store or the sync service is proven by its second view agreeing, not by the screen's own label.
+
+## Second views
+
+| On screen | Second view on the fake | Second view on the real system |
+|---|---|---|
+| The `Synced` badge on a note | none (the fake store never syncs) | `notes status --format json` `pending` is 0 |
+| The note list after a save | `notes show <title>` on the data directory | the same, after `notes sync` |
+
+## Fidelity register
+
+What the fakes do not model, and the transition in which the difference shows; a plan whose change touches one of these sends that journey to the real system.
+
+| The fake | The real system | Shows after | Check on the real system |
+|---|---|---|---|
+| The in-memory store (`NOTES_FAKE_STORE=1`) never fails a write and never reorders | The disk store refuses a write while a sync holds the lock | A save during a sync | `notes sync &` then a save: the editor shows `Saved after sync` |
+| No sync service | The service can be offline; the `Synced` badge then lies for up to 30 s | A save with the network down | `notes status --format json` `pending` after an offline save |
+
+## Suite order
+
+`scripts/steps/suite.txt` drives `create-note` then `search` with no reset between them, because search's seeded `Quarterly plan` is what create-note leaves behind; a reset before search would empty the store.
 
 ## Feature entry contract
 
-Each feature file starts with an H1 title, a `Status:` line (`drafted from source, not yet driven`, or `driven on <date>`), and one paragraph describing the user-visible behaviour.
+Each feature file starts with an H1 title, a `Status:` line (`drafted from source, not yet driven`, or `driven on <date>`), a `Sources:` line with the globs of the app source that renders the feature, and one paragraph describing the user-visible behaviour.
+The self-check uses `Sources:` to claim every user-facing file and to flag a feature as stale when those files change after its last drive.
 It then uses exactly four H2 sections in this order.
 
 1. `Sub-features` lists short ids with one line for each behaviour.
-2. `How to get to it (user POV)` lists every user entry point.
+2. `How to get to it (user POV)` lists every user entry point and the transitions that lead into the feature (after a sync, after a failed save).
 3. `Driving it with <harness>` starts with `Preconditions:` and uses labelled bullets that pair each user action with an exact command and an observable result, ending with a `Proof` bullet.
 4. `Gotchas` lists traps that can waste or invalidate a verification run.
 

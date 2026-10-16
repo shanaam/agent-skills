@@ -1,6 +1,7 @@
 # Create a note
 
 Status: driven on 2026-10-09 (illustrative; the app is fictional).
+Sources: `lib/features/editor/**` `cli/notes/create.py`
 
 Create note lets a user save a titled note from the editor or the CLI, cancel an unfinished draft, and confirm the saved note from a second user-facing view.
 

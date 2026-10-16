@@ -1,6 +1,7 @@
 # Search notes
 
 Status: drafted from source, not yet driven.
+Sources: `lib/features/search/**` `lib/widgets/search_field.dart` `cli/notes/search.py`
 
 Search lets a user find notes by title or body text, open a matching note, and tell no matches apart from an unavailable search.
 
