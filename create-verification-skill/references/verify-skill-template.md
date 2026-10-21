@@ -40,7 +40,7 @@ description: Drives <app> (<surface>, under <path>) the way a user does and capt
 - Ready when: <the log line, the port answering, the window title, the prompt>; wait for it, never a fixed sleep.
 - Isolation: <two instances can run with <ports or data directories> / only one instance can run, so never drive one this run did not start>.
 - Dependencies: <the emulator, fake, replay source, or dry-run mode, started first and how>; <what only the real dependency proves>.
-- Record at launch what cleanup needs: <the pid, the handle, the data directory, the run id>.
+- Record at launch what cleanup needs: <the pid, the handle, the data directory, the run id>, in `<run>/launch.json` beside `status`, `git_head`, and `git_dirty_paths`, which the `/verify` orchestrator compares with the range it verifies.
 - State outside the app that a drive changes (<saved options, a config file, a profile>) is copied aside by the launch helper and put back when the run ends; the launch record lists what was preserved and what was restored.
 - Fresh machine: <the one-time step, such as registering the driver MCP server for the agent, and the doc that holds it>; `<doctor recipe>` then proves the whole path.
 
@@ -74,7 +74,7 @@ _The doctor answers "is this instance worth driving?", so it checks identity and
 - Stable handles: <widget keys / accessible names / route paths / prompt strings / endpoints>, listed per feature in `features/`; never coordinates or tab order.
 - Shorthand used in feature files is defined once in `features/README.md` under Driving conventions.
 - Reset to a known state between features: <how>.
-- The suite: `python ${CLAUDE_SKILL_DIR}/scripts/suite.py --run <run>` drives every recipe in the order `scripts/steps/suite.txt` gives, with the resets where the recipes' preconditions want them (<the chained pair, or "a reset before each">), writes each feature's `walkthrough.md`, recovers after a failed recipe, and ends with `<run>/suite.md`; `--only <ids>` narrows it.
+- The suite: `python ${CLAUDE_SKILL_DIR}/scripts/suite.py --run <run>` drives every recipe in the order `scripts/steps/suite.txt` gives, with the resets where the recipes' preconditions want them (<the chained pair, or "a reset before each">), writes each feature's `walkthrough.md`, recovers after a failed recipe, and ends with `<run>/suite.md`; `--only <ids>` narrows it, and any run directory works, so the `/verify` orchestrator can point it at a shared evidence folder.
   Use the suite for a maintenance pass and for a plan that touched several features, and the driver alone while iterating on one recipe.
 - Interactive-only steps: <list, or "none">; everything else runs headless.
 
@@ -98,7 +98,7 @@ _Only when the app, or the stack it launches, has edges that leave the machine a
 
 ## Evidence
 
-- Location: `<app>_verification/<YYYY-MM-DD>/<feature-id>/`, gitignored by `*_verification/`; cleanup never touches it.
+- Location: `<app>_verification/<YYYY-MM-DD>/<feature-id>/` when this skill runs alone, or `<run>/<feature-id>/` under the run directory the `/verify` orchestrator passes, both gitignored by `*_verification/`; cleanup never touches it.
 - Per step: wait for the post-condition, then capture `<nn>_<what>.png` and the state text beside it as `<nn>_<what>.txt`.
 - Per feature: a `walkthrough.md` naming each artifact, what it shows, what was expected, and the exact commands that produced it.
 - Record the build: <how the build identity is read> goes into `walkthrough.md` with the date.
@@ -122,6 +122,7 @@ _Only when the app, or the stack it launches, has edges that leave the machine a
 - `<recipe or script>`: <what it does>, run as `<exact invocation>`. <Why it exists; when it is scaffolding in product code, say so and say what it must never do in a release build.>
 - `${CLAUDE_SKILL_DIR}/scripts/suite.py --run <run> [--only <ids>]` with `scripts/steps/suite.txt`: the recipes in their chaining order with the resets between them, one `walkthrough.md` per feature and `<run>/suite.md` at the end.
 - `${CLAUDE_SKILL_DIR}/scripts/selfcheck.py [--strict|--hook]` (recipe `just <app>-verify-check`, hook `<hook id>`): the map against the app, as described under Self-check; it reads files and git only.
+- `.claude/verifiers.toml`, this skill's entry: the targets it proves, its runtime peers, its live-only globs, its prerequisites, its ports, and its suite and self-check commands, which the `/verify` orchestrator reads to put the skill in scope; `<coverage check recipe>` keeps every target in the repository claimed.
 
 ## Feature map
 
@@ -143,6 +144,7 @@ Add or update a feature file in the same change that adds or changes the feature
 - `scripts/suite.py` with `scripts/steps/suite.txt`: the manifest lists `<feature-id> <steps-file>` lines and `reset` lines; the runner drives them in order through the driver, writes each walkthrough, recovers with the reset recipe after a failure, and writes `<run>/suite.md`.
   The org-repo `verify-demo-app` skill ships one to copy; it depends only on the driver's exit codes (0 pass, 1 a failed step, 2 unreachable) and `result.json`.
 - The launch helper copies aside the files a drive changes outside the app and restores them when the run ends, recording both in the launch record.
+- The registry entry follows [verifier-contract.md](verifier-contract.md): `proves` from the Surface answer, `runtime_peers` from the Peers at runtime answer, `live_only` from the fidelity register, each `prerequisite` from the build step a changed source needs, `ports` from the Isolate answer, and `suite` and `selfcheck` as the commands the Helpers section names.
 - Commands written for the author to run go in the author's shell syntax; in this family that is PowerShell, without `&&`.
 - A debug-only entry point that enables a driver extension lives beside the app's `main`, is named for what it is (`main_driver.dart`, `--driver`), and never becomes the release entry point.
 

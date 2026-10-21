@@ -1,6 +1,6 @@
 ---
 name: create-verification-skill
-description: Generates a project-local verification skill at `.claude/skills/verify-<app>/` that drives an application the way a user does (launch, doctor, drive, evidence, cleanup), installs the harness the app needs (a debug-only driver entry point, launch and doctor recipes, the agent's driver server registration, the setup docs for the next machine), seeds the feature map, then proves the skill by running it once before handing it over. Use whenever a repository has no scripted way to prove UI, desktop, CLI, or service behaviour, whenever the user asks for a verification skill, a verify skill, a feature map, a control skill, an app-driving harness, or "a way for the agent to use the app as a user", and whenever a plan's verification phase finds no `verify-<app>` skill to drive through. Any language or platform. Not for running a verification; that is the generated skill's job, so when `verify-<app>` already exists, use it instead. Adapted from pstack's create-verification-skill by poteto (MIT).
+description: Generates a project-local verification skill at `.claude/skills/verify-<app>/` that drives an application the way a user does (launch, doctor, drive, evidence, cleanup), installs the harness the app needs (a debug-only driver entry point, launch and doctor recipes, the agent's driver server registration, the skill's entry in the repository's verifier registry, the setup docs for the next machine), seeds the feature map, then proves the skill by running it once before handing it over. Use whenever a repository has no scripted way to prove UI, desktop, CLI, or service behaviour, whenever the user asks for a verification skill, a verify skill, a feature map, a control skill, an app-driving harness, or "a way for the agent to use the app as a user", and whenever a plan's verification phase finds no `verify-<app>` skill to drive through. Any language or platform. Not for running a verification; that is the generated skill's job, so when `verify-<app>` already exists, use it instead. Adapted from pstack's create-verification-skill by poteto (MIT).
 ---
 
 # Create a verification skill
@@ -31,6 +31,7 @@ The generated skill also checks itself: a self-check script compares the map wit
 ```
 
 Beside the skill, the harness it depends on lands in the product repository (step 3): the drivable entry point, the launch and doctor recipes, and the docs for the next machine.
+The skill's entry in the repository's verifier registry (`.claude/verifiers.toml`) lands there too, per [references/verifier-contract.md](references/verifier-contract.md), so the `/verify` orchestrator puts the skill in scope when a change touches what it proves.
 
 One skill per application a user touches; a monorepo with two apps gets `verify-<app-a>` and `verify-<app-b>`, each named the way the team names the app.
 Put the skill at the repository root's `.claude/skills/`, not under a subproject: Claude Code loads root project skills at startup and nested ones only after a file in that subtree is read, which is too late for a verification phase that starts by launching the app.
@@ -52,6 +53,9 @@ Answer these from the codebase and ask the user only what cannot be observed, ba
   If not, the generated skill says so and refuses to drive an instance it did not start; refusing beats corrupting the user's session.
 - **Hardware and externals.** Does the app need a device, a board, a cloud service, a model server?
   Find the repository's emulator, fake, replay source, or dry-run mode and record how to launch with it, and name what only the real dependency can prove.
+- **Peers at runtime.** Which other targets in the repository does the app talk to while it runs without importing them: a pipeline over HTTP, a server, a device emulator?
+  The build graph misses these edges, so an infra change under the peer would scope the peer's verifier and not this one; each peer goes into the registry entry as a runtime peer, proven on the live tier.
+  The demo app is coupled to its pipeline only through the API, and its project declares only the Dart libraries it imports.
 - **Edges that leave the machine.** Which processes on the launch path open a connection off the machine, and why: a model hub listing, a token refresh, a font or package fetch, a usage report?
   Each is a row in the fidelity register, and when the app is run or demoed where the network may be absent or half-working, the skill gets an offline tier: a launch on a warmed machine with egress refused (a tripwire proxy that logs and refuses every attempt) that must still reach health.
   A demo stack lost its intent server to a hub's 500 at startup with every byte of the model on disk, because nothing had ever launched it with the network refused.
@@ -112,6 +116,8 @@ The interview and the probe say what the driver needs; this step puts it in plac
   Record the registration command per OS where the next machine's reader will look, because this step lives outside the repository and is the one most often missing.
 - **The self-check recipe and its hook.** `scripts/selfcheck.py` (from [references/selfcheck-template.py](references/selfcheck-template.py), with the surface globs and string patterns filled in for this app) gets a task-runner recipe, `just <app>-verify-check` or the repository's equivalent, and its deterministic part (`--hook`: map integrity and claimed surfaces, no git) becomes a pre-commit hook filtered to the app's source and the skill directory.
   The hook is what makes "update the feature map in the docs phase" a sensor instead of a sentence; keep staleness a warning there, because a hook that fails on "drive it again" blocks every unrelated commit, and keep a dead `Sources:` glob a warning too, because in a stack of commits the map can land before the code and CI runs the hook on every commit's PR.
+- **The registry entry.** `.claude/verifiers.toml` at the repository root gains this skill's entry, in the shape [references/verifier-contract.md](references/verifier-contract.md) gives: the targets it proves (from Surface), its runtime peers (from Peers at runtime), the live-only globs (from Fidelity), each prerequisite with the change that triggers it (a native extension rebuild after a change under its sources), the ports it owns or refuses to share (from Isolate), and its suite and self-check commands.
+  The repository's coverage check passes once the entry is in; when the repository has no registry yet, create it with this one entry and the check, because the `/verify` orchestrator scopes a change through the registry and a verifier missing from it is never run.
 - **The gotchas, where the next agent reads them.** What the probe and the doctor run taught (a frame-sync setting, a startup race, a renderer limit, an inline-only screenshot) goes into the generated skill's Drive section, the feature map's driving conventions, and the repository's commands doc; a gotcha that lives only in a chat transcript is lost.
 - **The setup docs, when setup changed.** When the harness adds a per-machine step or a dependency, the contributing guide gains the step and the commands cheatsheet gains the recipes.
   When a rules file (`AGENTS.md` or similar) is the natural home and the repository asks for discussion before editing it, draft the lines and queue them for the author instead of editing.
@@ -168,6 +174,7 @@ Aim for the top three to five features to start, found from routes, screens, men
 ## 6. Prove it before handing it over
 
 Run the self-check first; on a freshly seeded map it must pass, and an unclaimed surface it reports is a feature the seeding missed.
+Run the repository's registry coverage check beside it; it passes once this skill's entry is in `.claude/verifiers.toml`, and a target it still names is one the entry's `proves` list missed.
 Then run the generated skill's own instructions end to end once: launch, doctor, drive one mapped feature through the suite runner (one is enough, the map exists so later runs cover the rest), capture evidence, clean up, and confirm the harness put back any state outside the app that the drive changed.
 After cleanup, confirm the evidence still exists at the named location; a cleanup that eats the proof fails this step.
 Fix what fails, and run the generated cleanup after every failed iteration too, so broken attempts do not strand processes and ports.
@@ -180,7 +187,8 @@ A generated skill that was never executed is a draft, and the hand-off says so.
 
 Tell the user, in one message:
 
-- Where the skill is, which feature is proven, which are drafted, and the harness pieces added to the product repository (entry point, recipes, the self-check recipe and hook, docs) with the reason, plus what was registered on this machine and is therefore per machine.
+- Where the skill is, which feature is proven, which are drafted, and the harness pieces added to the product repository (entry point, recipes, the self-check recipe and hook, the registry entry, docs) with the reason, plus what was registered on this machine and is therefore per machine.
+- That `/verify` now puts this skill in scope for a change under the targets its registry entry proves, and on the live tier for a change under its runtime peers.
 - Gaps the interview found that only the author can close: no build identity, no isolation, a step that needs real hardware, and the fidelity register's rows that only the real system can exercise.
 - A human test of one to three commands in the author's shell: the doctor, then one drive, each with what to expect and the single observation that means it passed.
 - That the author commits the skill directory, after checking the ignore rules keep the evidence folder out.
@@ -211,6 +219,7 @@ When a plan is in play, add the feature map update to its docs phase and point i
 
 - [references/verify-skill-template.md](references/verify-skill-template.md): the skeleton of the generated SKILL.md, section by section; read before writing one.
 - [references/selfcheck-template.py](references/selfcheck-template.py): the self-check script to copy into `scripts/selfcheck.py` and fill in (the surface globs, the visible-string patterns for the app's UI toolkit, the H2 names); its contract is in the comments at the top.
+- [references/verifier-contract.md](references/verifier-contract.md): the four things the `/verify` orchestrator reads from a generated skill (the `Status:` and `Sources:` lines, the launch record, the suite runner, the registry entry) and the registry's schema; read at step 3 and before changing any script's interface.
 - [references/feature-map-example/](references/feature-map-example/): a complete feature map for a small fictional app with a desktop UI and a CLI, with a fidelity register, second views, and Sources lines; copy the shape, not the content.
 - [../architecture-codesign/references/verification.md](../architecture-codesign/references/verification.md): the driver per app type, evidence conventions, the probe list; read during the interview.
 - [../architecture-codesign/references/diagrams.md](../architecture-codesign/references/diagrams.md): read before drawing the navigation diagram.
@@ -219,10 +228,11 @@ When a plan is in play, add the feature map update to its docs phase and point i
 ## Provenance
 
 Adapted from pstack's `create-verification-skill` and `maintain-verification-skill` and their feature-map example, by poteto (Lauren Tan), MIT licensed, at https://github.com/cursor/plugins/tree/main/pstack.
-What changed for this family: Claude Code project-skill paths and loading rules, the evidence conventions shared with the codesign and plan-execution skills, the navigation diagram and drafted markers in the map, the build-identity and hardware interview questions, the maintenance loop folded into the generated skill, the hand-off's human test, and (after the first weeks of use) the fidelity register, the second views, the Sources lines with the self-check and its hook, the suite manifest, and the live tier.
+What changed for this family: Claude Code project-skill paths and loading rules, the evidence conventions shared with the codesign and plan-execution skills, the navigation diagram and drafted markers in the map, the build-identity and hardware interview questions, the maintenance loop folded into the generated skill, the hand-off's human test, and (after the first weeks of use) the fidelity register, the second views, the Sources lines with the self-check and its hook, the suite manifest, the live tier, and the verifier contract with the registry entry that the `/verify` orchestrator scopes a change through.
 
 ## Maintaining this skill
 
 - Revisit when Claude Code changes skill discovery or frontmatter, when a driver in the verification reference changes, and after the first real generation on a new stack, folding what the interview had to discover the hard way back into section 1.
 - Revisit after a live incident a generated skill did not predict: the gap goes into the interview's fidelity question and the template's register as a row others can recognise, and the probe that would have shown it into the live-tier guidance.
 - Keep the four feature-file H2s, the Status and Sources lines, and the self-check's exit codes stable; the plans, the hook, and the maintenance loop depend on them.
+- Keep the verifier contract stable too: the `/verify` orchestrator reads only what [references/verifier-contract.md](references/verifier-contract.md) names, and every generated skill is a copy, so a change goes into the contract first, then the templates, then each copy, with the hand-off saying which copies still lag.
