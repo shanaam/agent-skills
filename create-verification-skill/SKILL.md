@@ -54,17 +54,21 @@ Answer these from the codebase and ask the user only what cannot be observed, ba
 - **Hardware and externals.** Does the app need a device, a board, a cloud service, a model server?
   Find the repository's emulator, fake, replay source, or dry-run mode and record how to launch with it, and name what only the real dependency can prove.
 - **Peers at runtime.** Which other targets in the repository does the app talk to while it runs without importing them: a pipeline over HTTP, a server, a device emulator?
-  The build graph misses these edges, so an infra change under the peer would scope the peer's verifier and not this one; each peer goes into the registry entry as a runtime peer, proven on the live tier.
+  The build graph misses these edges, so an infra change under the peer would scope the peer's verifier and not this one; each peer goes into the registry entry as a runtime peer, proven on the e2e tiers.
   The demo app is coupled to its pipeline only through the API, and its project declares only the Dart libraries it imports.
 - **Edges that leave the machine.** Which processes on the launch path open a connection off the machine, and why: a model hub listing, a token refresh, a font or package fetch, a usage report?
   Each is a row in the fidelity register, and when the app is run or demoed where the network may be absent or half-working, the skill gets an offline tier: a launch on a warmed machine with egress refused (a tripwire proxy that logs and refuses every attempt) that must still reach health.
   A demo stack lost its intent server to a hub's 500 at startup with every byte of the model on disk, because nothing had ever launched it with the network refused.
 - **Fidelity.** For each fake, emulator, or dry-run the app can run on, what does it not model: timing (a control applied at once where the real system applies it on the next data), loss (a queue that never evicts), clocks (a timeline that never restarts), transitions (no reconnect, no stop and resume of a stream, no device coming off mid-flow), degradation (a service that never goes offline), shared state (a port another app also answers on)?
-  Each gap is a row in the map's fidelity register with the transition it shows after and the live check that sees it, because a recipe on the fake passes before and after a bug that lives in a gap.
+  Each gap is a row in the map's fidelity register with the transition it shows after and the e2e check that sees it, because a recipe on the fake passes before and after a bug that lives in a gap.
+  Name the e2e tier each gap needs, `e2e-lite` (the real system in its cheap configuration with a board) or `e2e-full` (everything: the release model, the servers, the network), and what that tier needs from the machine, because the registry entry declares the tiers and their needs from these answers.
   The first generation on the demo app proved six features on the fakes, and the author then met four live-only failures in one afternoon (a lost unmute after a take, a stale utterance after the device came off, a probe window shorter than the board's answer, a stuttering stream); every one sat in a gap the fake had and the map had not named.
 - **Contracts the app consumes.** Which recipes, commands, and endpoints does the app shell out to or call at startup, with what exit codes and payload shapes?
   Each is a headless check that needs no app running, and the ones that cross a shell boundary are where a fresh reviewer found gaps the drives had passed over (a task runner on Windows reporting exit 3 as 1).
 - **State outside the app that a drive touches.** Saved options, config files, profiles, seeded rows: the harness copies them aside at launch and puts them back at the end, because a note under Gotchas asking the reader to copy a file aside was skipped once and the author's saved options were overwritten.
+- **Processes outside the app's tree.** What does a launch cause to run that the launcher's handle does not cover, or that outlives the app by design: a server the app adopts when it answers and starts otherwise, a container, an emulator, a process inside WSL or a VM, a daemon?
+  For each, how the app tells one it found running from one it started (a flag or a spawn count in its status, a health URL answering before the launch), and the command that stops it.
+  The launcher records what the launch started and cleanup stops exactly that set, because a demo stack's verifier stopped its supervisor by the recorded handle on every launch and left the intent and voice servers it had started running in WSL for hours, holding half the GPU; each later launch adopted them warm, so neither the leak nor a cold start was ever seen.
 - **Build identity.** How does a running instance show which build it is: a version string, a git sha on an about screen, a status field, a log line at startup?
   If there is none, record it as a gap for the author rather than inferring the build from a window title.
 - **Repository conventions.** The task runner, the markdown rules, where evidence goes, and the ignore rules, so the skill directory is committed and the evidence folder is not.
@@ -96,12 +100,12 @@ Traps the first generation on a Flutter desktop app met (2026-10-09), each worth
 Traps the same skill met once it was in use (2026-10-11), each now a rule in the template:
 
 - A recipe proven from the baseline says nothing about the feature after a transition: the four live failures were all "after a take", "after the device came off with an utterance open", "after a reconnect".
-  Each feature file names the transitions that lead into it, the recipe drives the ones the fake can do, and the fidelity register sends the rest to the live tier.
+  Each feature file names the transitions that lead into it, the recipe drives the ones the fake can do, and the fidelity register sends the rest to the e2e tiers.
 - A screen that mirrors backend state passes on the fake because the fake is the app's own idea of the backend; what fails is the second view, the backend's own status field read through its API or a pane row.
   The map lists the pairs, and a recipe that proves the screen reads the second view too.
 - Recipes chain: one leaves the state the next needs (an enrolled user), so a run order improvised per session put a reset between them twice.
   A suite manifest encodes the order and the resets once, and the suite runner drives it.
-- A link can degrade between two runs on the same code (an answer that took 1.6 s on one connection took 23.9 s on the next); a live pass starts with an environment baseline so a failure is classified as environment before product.
+- A link can degrade between two runs on the same code (an answer that took 1.6 s on one connection took 23.9 s on the next); an e2e pass starts with an environment baseline so a failure is classified as environment before product.
 
 ## 3. Make the harness exist and reachable
 
@@ -116,7 +120,7 @@ The interview and the probe say what the driver needs; this step puts it in plac
   Record the registration command per OS where the next machine's reader will look, because this step lives outside the repository and is the one most often missing.
 - **The self-check recipe and its hook.** `scripts/selfcheck.py` (from [references/selfcheck-template.py](references/selfcheck-template.py), with the surface globs and string patterns filled in for this app) gets a task-runner recipe, `just <app>-verify-check` or the repository's equivalent, and its deterministic part (`--hook`: map integrity and claimed surfaces, no git) becomes a pre-commit hook filtered to the app's source and the skill directory.
   The hook is what makes "update the feature map in the docs phase" a sensor instead of a sentence; keep staleness a warning there, because a hook that fails on "drive it again" blocks every unrelated commit, and keep a dead `Sources:` glob a warning too, because in a stack of commits the map can land before the code and CI runs the hook on every commit's PR.
-- **The registry entry.** `.claude/verifiers.toml` at the repository root gains this skill's entry, in the shape [references/verifier-contract.md](references/verifier-contract.md) gives: the targets it proves (from Surface), its runtime peers (from Peers at runtime), the live-only globs (from Fidelity), each prerequisite with the change that triggers it (a native extension rebuild after a change under its sources), the ports it owns or refuses to share (from Isolate), and its suite and self-check commands.
+- **The registry entry.** `.claude/verifiers.toml` at the repository root gains this skill's entry, in the shape [references/verifier-contract.md](references/verifier-contract.md) gives: the targets it proves (from Surface), its runtime peers (from Peers at runtime), the e2e-only globs and the e2e tiers with their needs (from Fidelity, Hardware and externals, and Edges: a board, the GPU, the network, a server, a scratch data directory) with the peer stack a tier borrows (from Peers at runtime), each prerequisite with the change that triggers it (a native extension rebuild after a change under its sources), the ports it owns or refuses to share (from Isolate), and its suite and self-check commands.
   The repository's coverage check passes once the entry is in; when the repository has no registry yet, create it with this one entry and the check, because the `/verify` orchestrator scopes a change through the registry and a verifier missing from it is never run.
 - **The gotchas, where the next agent reads them.** What the probe and the doctor run taught (a frame-sync setting, a startup race, a renderer limit, an inline-only screenshot) goes into the generated skill's Drive section, the feature map's driving conventions, and the repository's commands doc; a gotcha that lives only in a chat transcript is lost.
 - **The setup docs, when setup changed.** When the harness adds a per-machine step or a dependency, the contributing guide gains the step and the commands cheatsheet gains the recipes.
@@ -133,17 +137,20 @@ Every section is grounded in what the interview found, with no placeholder left:
 
 - **Launch.** The exact command that starts the app for verification and how to tell it is ready (a log line, a port answering, a prompt), plus the teardown, plus the harness prerequisites on a fresh machine (the one-time registration or bootstrap from step 3, and the doc that holds it).
   For a short-lived CLI there is no server to keep alive: launch means build or install once, then start each drive in its own isolated session.
+  The launcher gives the app the null device as stdin, never a pipe it never writes: every process under the app inherits it, and on Windows one that parks a read on an inherited synchronous pipe (`wsl.exe` does) hangs any later process that queries the same handle at startup.
+  The demo stack's verifier lost every launch that spawned a WSL server this way: the pipeline's log stayed empty and its process used no CPU until the start timed out.
 - **Self-check.** The script, its recipe, its hook, when to run it (before the first drive, at the end of a plan's docs phase, when a recipe fails on an app that should not have changed), and what a failure means: the map is behind the app, not the app broken.
 - **Doctor.** One read-only check that answers "is this instance worth driving?": process up, right build, port owned by this run, auth valid, the fake or device connected.
   An agent runs it first whenever anything looks off, and again after any failed drive.
   The doctor recipe from step 3 is this check's strongest form; the skill names it and says what its exit codes mean.
 - **Drive.** The harness recipe with real handles from this repository: widget keys, accessible names, route paths, prompt strings, endpoints, never coordinates or tab order.
   The suite: a manifest of the recipes in their chaining order with the resets between them, and the runner that drives it, writes each walkthrough, recovers after a failed recipe, and ends with one summary; a maintenance pass and a plan that touched several features use the suite, a session iterating on one recipe uses the driver alone.
-- **Live tier**, when a fake stands in for a real system.
-  What the fakes stand in for, the probes under `scripts/live/` that measure the real system through its own API with expected numbers, the environment baseline every live pass starts with, and the transitions the fidelity register sends here; the first measured numbers go into the feature file as the reference the next run compares with.
+- **E2E tiers**, when a fake stands in for a real system.
+  What each tier launches and needs, the manifest lines marked for it with their twins, the probes under `scripts/live/` that measure the real system through its own API with expected numbers, the environment baseline every e2e pass starts with, the transitions the fidelity register sends here, and what stays the author's; the first measured numbers go into the feature file as the reference the next run compares with.
 - **Evidence.** What to capture for a proof and where it goes, with the proof standards: exercise the real user path, not internal setters or test-only endpoints; capture the action and the resulting state, not only the final screen; verify side effects (files written, rows inserted, messages sent) beside what is visible; mocks only where a production boundary already isolates the external system; a dry-run or test mode is verified by observing what it skips, not by trusting its name; a state the screen mirrors from a backend is read a second time from the backend's own side; a feature is proven across the transitions that reset a resource, not only from the baseline.
   Evidence is positive and fresh: new since the build, non-empty, and containing the expected content, with the build it came from recorded.
 - **Cleanup.** How to tear down what the run created, and nothing else: never kill by process name, kill what you started.
+  What you started includes every process outside the app's tree that the interview found the launch starting: cleanup stops those through the app's own stop path (or each one's stop command when the app has exited), leaves running what the launch found running, then checks each is gone and records any that is not in `launch.json`, so a leftover is a reported cleanup failure, never a warm start for the next launch.
   Cleanup removes instances and scratch state, never the evidence, which survives in the location the skill names.
 - **Helpers.** Any script the skill ships is executable and its invocation is shown in the skill body; a helper the reader has to reverse-engineer is not a helper.
   When the repository has a task runner, the helper is a recipe in it, referenced from the skill, so the skill's commands stay valid when flags change.
@@ -157,8 +164,8 @@ Keep the generated SKILL.md short; the per-feature detail lives in the feature f
 Create `features/README.md` plus one file per user-facing feature, following the shape in [references/feature-map-example/](references/feature-map-example/).
 Aim for the top three to five features to start, found from routes, screens, menus, commands, and docs, in the order a user meets them.
 
-- The README carries the baseline preconditions, the driving conventions (including any shorthand the feature files use for driver calls, defined once), the proof and skip-reporting rules, the second views (each screen state that mirrors a backend, paired with the backend-side reading of it on the fake and on the real system), the fidelity register (a table of what each fake does not model, the transition the difference shows after, and the live check that sees it), the feature entry contract, and the index.
-  The fidelity register is written from the interview's fidelity answers before any feature is drafted, because it decides which journeys a plan can prove on the fake and which it must send to the live tier.
+- The README carries the baseline preconditions, the driving conventions (including any shorthand the feature files use for driver calls, defined once), the proof and skip-reporting rules, the second views (each screen state that mirrors a backend, paired with the backend-side reading of it on the fake and on the real system), the fidelity register (a table of what each fake does not model, the transition the difference shows after, and the e2e check that sees it), the feature entry contract, and the index.
+  The fidelity register is written from the interview's fidelity answers before any feature is drafted, because it decides which journeys a plan can prove on the fake and which it must hand to `/verify` in an e2e mode.
 - When the app has more than three screens or commands, the README also carries a mermaid navigation diagram: screens or commands as nodes, user entry points as edges, each node naming its feature file, at most twenty-five nodes, drawn per [../architecture-codesign/references/diagrams.md](../architecture-codesign/references/diagrams.md).
   An agent reading the map cold sees where the feature sits before it reads the recipe.
 - Each feature file answers, from the user's point of view: what the feature is, how to reach it, how to drive it with the harness, and what observable end state proves it works.
@@ -167,7 +174,7 @@ Aim for the top three to five features to start, found from routes, screens, men
 - Every file starts, under its H1, with `Status: drafted from source, not yet driven`, removed only when a run has driven that file's recipe end to end; the map stays honest about what is proven and what is inferred.
 - Under the Status line, a `Sources:` line names the globs of the app source that renders the feature (screens, dialogs, widgets, the backend nodes a live feature measures, never tests).
   The self-check claims every user-facing file through these lines and flags a feature as stale when its sources change after the date it was driven; a surface no feature claims is the signal that a feature file is missing.
-- `How to get to it` lists the transitions that lead into the feature as well as the entry points, and the recipe drives at least one that the fake can do; the fidelity register names the ones that need the live tier.
+- `How to get to it` lists the transitions that lead into the feature as well as the entry points, and the recipe drives at least one that the fake can do; the fidelity register names the ones that need the e2e tiers.
 - Keep implementation detail out: user paths, stable handles, required state, commands, and observable proof only.
 - Seed the suite manifest with the features in the order a user meets them, a reset wherever the next recipe starts from the baseline, and none where one recipe leaves the state the next needs.
 
@@ -176,6 +183,7 @@ Aim for the top three to five features to start, found from routes, screens, men
 Run the self-check first; on a freshly seeded map it must pass, and an unclaimed surface it reports is a feature the seeding missed.
 Run the repository's registry coverage check beside it; it passes once this skill's entry is in `.claude/verifiers.toml`, and a target it still names is one the entry's `proves` list missed.
 Then run the generated skill's own instructions end to end once: launch, doctor, drive one mapped feature through the suite runner (one is enough, the map exists so later runs cover the rest), capture evidence, clean up, and confirm the harness put back any state outside the app that the drive changed.
+Confirm too that nothing the launch started still runs: every port and process the interview listed answers after cleanup only if it answered before the launch, checked once on a launch that started them, once on a launch that found one already running, and once more after ending the launch's process tree without its clean stop.
 After cleanup, confirm the evidence still exists at the named location; a cleanup that eats the proof fails this step.
 Fix what fails, and run the generated cleanup after every failed iteration too, so broken attempts do not strand processes and ports.
 The proof run's evidence lands under `<app>_verification/<YYYY-MM-DD>/<feature-id>/` with a `walkthrough.md`, the same conventions a plan's verification phase uses.
@@ -188,7 +196,7 @@ A generated skill that was never executed is a draft, and the hand-off says so.
 Tell the user, in one message:
 
 - Where the skill is, which feature is proven, which are drafted, and the harness pieces added to the product repository (entry point, recipes, the self-check recipe and hook, the registry entry, docs) with the reason, plus what was registered on this machine and is therefore per machine.
-- That `/verify` now puts this skill in scope for a change under the targets its registry entry proves, and on the live tier for a change under its runtime peers.
+- That `/verify` now puts this skill in scope for a change under the targets its registry entry proves (its fakes and e2e tiers) and in its e2e tiers only for a change under its runtime peers, and that in an e2e mode it launches the skill twice, on its fakes and then on the real system.
 - Gaps the interview found that only the author can close: no build identity, no isolation, a step that needs real hardware, and the fidelity register's rows that only the real system can exercise.
 - A human test of one to three commands in the author's shell: the doctor, then one drive, each with what to expect and the single observation that means it passed.
 - That the author commits the skill directory, after checking the ignore rules keep the evidence folder out.
@@ -202,6 +210,7 @@ When a plan is in play, add the feature map update to its docs phase and point i
 - Leaving a placeholder where a real selector, key, route, or command belongs.
 - Driving a convenient internal entry point and calling the feature verified.
 - Killing by process name, or a cleanup that deletes the evidence.
+- A cleanup that ends the app's process tree and leaves the servers, containers, or emulators the launch started running.
 - Trusting a dry-run's name instead of observing what it skipped.
 - A map that describes what the code does rather than what the user sees.
 - Prose written for a human reader where the next agent needs a literal command and an observable.
@@ -228,11 +237,11 @@ When a plan is in play, add the feature map update to its docs phase and point i
 ## Provenance
 
 Adapted from pstack's `create-verification-skill` and `maintain-verification-skill` and their feature-map example, by poteto (Lauren Tan), MIT licensed, at https://github.com/cursor/plugins/tree/main/pstack.
-What changed for this family: Claude Code project-skill paths and loading rules, the evidence conventions shared with the codesign and plan-execution skills, the navigation diagram and drafted markers in the map, the build-identity and hardware interview questions, the maintenance loop folded into the generated skill, the hand-off's human test, and (after the first weeks of use) the fidelity register, the second views, the Sources lines with the self-check and its hook, the suite manifest, the live tier, and the verifier contract with the registry entry that the `/verify` orchestrator scopes a change through.
+What changed for this family: Claude Code project-skill paths and loading rules, the evidence conventions shared with the codesign and plan-execution skills, the navigation diagram and drafted markers in the map, the build-identity and hardware interview questions, the maintenance loop folded into the generated skill, the hand-off's human test, and (after the first weeks of use) the fidelity register, the second views, the Sources lines with the self-check and its hook, the suite manifest, the e2e tiers with the registry's tier tables, and the verifier contract with the registry entry that the `/verify` orchestrator scopes a change through.
 
 ## Maintaining this skill
 
 - Revisit when Claude Code changes skill discovery or frontmatter, when a driver in the verification reference changes, and after the first real generation on a new stack, folding what the interview had to discover the hard way back into section 1.
-- Revisit after a live incident a generated skill did not predict: the gap goes into the interview's fidelity question and the template's register as a row others can recognise, and the probe that would have shown it into the live-tier guidance.
+- Revisit after a live incident a generated skill did not predict: the gap goes into the interview's fidelity question and the template's register as a row others can recognise, and the probe that would have shown it into the E2E tiers guidance.
 - Keep the four feature-file H2s, the Status and Sources lines, and the self-check's exit codes stable; the plans, the hook, and the maintenance loop depend on them.
 - Keep the verifier contract stable too: the `/verify` orchestrator reads only what [references/verifier-contract.md](references/verifier-contract.md) names, and every generated skill is a copy, so a change goes into the contract first, then the templates, then each copy, with the hand-off saying which copies still lag.

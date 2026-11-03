@@ -145,8 +145,8 @@ How to execute it, tool by app type, is in [../architecture-codesign/references/
 
 - Execute the evidence contract as written: the verify skill's self-check first (it exits 0 once the docs phase has claimed every surface the plan added, and its stale warnings are the drive list), then the deterministic gate (the verify recipe that exits non-zero on failure), then the walkthrough as a user with screenshots after each post-condition is reached, then profiles when a hot path changed.
 - Drive the walkthrough through the repository's `verify-<app>` skill at `.claude/skills/verify-<app>/`: its Launch, Doctor, Drive, Evidence, and Cleanup sections are the harness, and `features/<feature>.md` is the recipe for each changed journey.
-  Drive the fake tier through the skill's suite rather than an order improvised per session (recipes chain, and a reset in the wrong place broke a precondition twice), including each touched feature after the transitions its file names.
-  Run the live tier (the probes under `scripts/live/` and the live recipe) for every contract row the fidelity register marks live, starting with the skill's environment baseline, and only when the author has asked for a live check; a journey through a fake's gap proven on the fake alone is reported as not verified, never as passed.
+  Drive the fakes tier through the skill's suite (`--tier fakes`) rather than an order improvised per session (recipes chain, and a reset in the wrong place broke a precondition twice), including each touched feature after the transitions its file names, and the mandatory offline tier where the skill has one.
+  The e2e rows of the contract (the journeys the fidelity register sends to the real system) are `/verify`'s in `e2e-lite` or above before the PR, queued under Awaiting the author with the mode; a journey through a fake's gap proven on the fake alone is reported as not verified, never as passed.
   When none exists, the plan's Phase 0 task creates one with the sibling `create-verification-skill` before the phase continues, and the docs phase updates the feature file of every feature the plan changed.
   A recipe that fails on a feature the plan did not touch is triaged before anything else: the self-check says whether the map is behind the app, the environment baseline says whether the link is, and only then is it the plan's regression.
 - Run the convergence audit against Design decisions and append each gap as a task, classified missing, partial, contradicting, or unrequested, rather than fixing it silently.
@@ -205,7 +205,7 @@ Leave the tree runnable and the plan truthful:
 - A shim, flag, or second path built so a phase passes its checks alone, left for the docs phase or the next plan to remove.
 - A phase boundary passed with the plan lagging the tree, so a compaction or a fresh session loses what only the conversation held.
 - A user-facing change landed with the feature map untouched; the self-check names the unclaimed surface, so run it before saying the docs phase is done.
-- A journey the fidelity register sends to the live tier reported as verified from a drive on the fake.
+- A journey the fidelity register sends to the e2e tiers reported as verified from a drive on the fake, or a PR opened without the `/verify` e2e run its contract rows name.
 - A status report with claims that no tool result in the session supports.
 - Blocking on an approval that could have been queued.
 - A hand-off that describes the tree as it was at the start of the session.

@@ -6,7 +6,7 @@ Tool facts below were verified on 2026-10-09; tools in this area change within m
 
 Contents:
 
-- The verify skill comes first (the self-check, the two tiers, second views, transitions, the environment baseline)
+- The verify skill comes first (the self-check, the tiers, second views, transitions, the environment baseline)
 - Evidence conventions
 - The evidence contract
 - Choosing the journeys
@@ -24,13 +24,13 @@ Contents:
 - The skill's self-check (`just <app>-verify-check`, `scripts/selfcheck.py`) is the gate on the map itself: it fails when a user-facing source file no feature claims exists, and warns when a feature's sources changed after its last drive.
   Run it in Phase 0 (a stale feature before the plan is not the plan's regression), at the end of the docs phase (every surface the plan added is claimed), and first in the verification phase (the features it still warns about are the drive list).
 - A plan that changes or adds a user-facing feature names it in the Design decisions' Verifier impact line and in the phase that changes it, updates that feature's map file in its docs phase (file, `Sources:` line, steps file, suite entry, index, navigation node), and sets the feature's `Status:` back to drafted until the verification phase drives it.
-- Two tiers: the fake tier is every recipe the app's fakes can run, driven through the skill's suite; the live tier is the probes under `scripts/live/` and the live recipe, run against the real system only when the author has asked.
-  The map's fidelity register decides which tier a journey needs: a change that touches a gap the fake has (a control applied on the next data instead of at once, a clock that restarts, a queue that evicts, a reconnect, a shared port, a service that degrades) is proven on the live tier, because a recipe on the fake passes before and after a bug that lives in a gap; the demo app's four live failures of 2026-10-11 were all of this kind, each proven on the fake the day before.
+- The tiers: `fakes` is every recipe the app's fakes can run, driven through the skill's suite with `--tier fakes`; `e2e-lite` and `e2e-full` are the suite's e2e lines on the real system with a board (the emulator on another machine counts), launched through the skill's launcher with `--tier`, which `/verify` runs in an e2e mode before the PR; the probes under `scripts/live/` and the environment baseline are the triage when an e2e recipe fails on the link.
+  The map's fidelity register decides which tier a journey needs: a change that touches a gap the fake has (a control applied on the next data instead of at once, a clock that restarts, a queue that evicts, a reconnect, a shared port, a service that degrades) is proven in `e2e-lite` or above, because a recipe on the fake passes before and after a bug that lives in a gap; the demo app's four live failures of 2026-10-11 were all of this kind, each proven on the fake the day before.
 - Offline tier, when the app or the stack it launches has edges that leave the machine and runs where the network may be absent or half-working: a launch on a machine warmed by an earlier online run, with egress refused rather than absent (a tripwire proxy that logs and refuses every attempt), must reach health and serve the journeys the map names.
-  The register carries one row per off-machine edge, and a change that touches the launch path, model loading, a server, a network client, or runtime assets runs this tier and reports it beside the other two; a demo stack lost its intent server to a hub's 500 at startup with every byte of the model on disk, because nothing had ever launched it with the network refused.
+  The register carries one row per off-machine edge, and a change that touches the launch path, model loading, a server, a network client, or runtime assets runs this tier and reports it beside the fakes and e2e tiers; a demo stack lost its intent server to a hub's 500 at startup with every byte of the model on disk, because nothing had ever launched it with the network refused.
 - Second views: a state the screen mirrors from a backend is proven by the backend's own reading agreeing (a status endpoint, a pane row, a CLI query), listed in the map's second-views table; the screen's own label is the app's belief and passes on a fake by construction.
 - Transitions: the journeys to drive include the feature after the transitions its map file names (after a take, after the device came off, after a reconnect), not only from the baseline, because that is where the live failures sat.
-- Environment baseline: a live pass starts with the skill's baseline probes (link cadence, answer latency, queue counters) saved under the evidence folder, so a failure on a degraded link is classified as environment before product; the same code answered a probe in 1.6 s on one connection and 23.9 s on the next.
+- Environment baseline: an e2e pass starts with the skill's baseline probes (link cadence, answer latency, queue counters) saved under the evidence folder, so a failure on a degraded link is classified as environment before product; the same code answered a probe in 1.6 s on one connection and 23.9 s on the next.
 - Contracts the app consumes (the recipes and endpoints it shells out to or calls at startup) are headless criteria with their exit codes and payload keys, checked from a shell with no app running; a shell boundary (a task runner on Windows reporting exit 3 as 1) is where a fresh reviewer found what the drives had passed over.
 - The table below is for choosing the driver when generating a verify skill, and for one-off verification in a repository with no app to map.
 
@@ -59,7 +59,7 @@ Write it before the code, as part of the plan's verification phase, so the imple
 
 - Start from the design decisions: each decision that changes something a user sees or does is one journey.
 - Add the failure paths the decisions named (the refusal, the retry, the empty state), because they are what the old build got wrong.
-- Add the transitions into each touched feature that its map file names, and give the journey the tier the fidelity register says; a journey through a fake's gap on the fake tier proves nothing about the change.
+- Add the transitions into each touched feature that its map file names, and give the journey the tier the fidelity register says; a journey through a fake's gap on the fakes tier proves nothing about the change, and its row is `/verify`'s in an e2e mode.
 - Skip journeys the plan did not touch; evidence for unchanged behaviour buries the signal.
 
 ## Tool per app type

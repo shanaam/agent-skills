@@ -8,7 +8,7 @@ Keep the generated SKILL.md under about 150 lines; the per-feature detail lives 
 Contents:
 
 - Frontmatter notes
-- The skeleton (Launch, Self-check, Doctor, Drive with the suite, Live tier, Evidence, Cleanup, Helpers, Feature map, Maintaining)
+- The skeleton (Launch, Self-check, Doctor, Drive with the suite, E2E tiers, Offline tier, Evidence, Cleanup, Helpers, Feature map, Maintaining)
 - Helper placement
 - The maintenance section, verbatim
 
@@ -40,7 +40,8 @@ description: Drives <app> (<surface>, under <path>) the way a user does and capt
 - Ready when: <the log line, the port answering, the window title, the prompt>; wait for it, never a fixed sleep.
 - Isolation: <two instances can run with <ports or data directories> / only one instance can run, so never drive one this run did not start>.
 - Dependencies: <the emulator, fake, replay source, or dry-run mode, started first and how>; <what only the real dependency proves>.
-- Record at launch what cleanup needs: <the pid, the handle, the data directory, the run id>, in `<run>/launch.json` beside `status`, `git_head`, and `git_dirty_paths`, which the `/verify` orchestrator compares with the range it verifies.
+- Tiers: `start --tier fakes|e2e-lite|e2e-full` (default `fakes`) records the tier in `launch.json`; in an e2e tier <what the launcher does differently: the real system's flags and the board from `RTP_BLE_ADDRESS`, the options the e2e recipes assume, the refusal of a data directory outside the evidence parent>, and the app itself launches the same way where the recipes bring the real system in.
+- Record at launch what cleanup needs: <the pid, the handle, the data directory, the run id, and each process outside the app's tree the launch started (a server, a container, an emulator) as opposed to one it found running>, in `<run>/launch.json` beside `status`, `tier`, `git_head`, `git_dirty_paths`, and `board` (and `peer` when the e2e recipes borrow another verifier's stack), which the `/verify` orchestrator compares with the range and the launch it asked for.
 - State outside the app that a drive changes (<saved options, a config file, a profile>) is copied aside by the launch helper and put back when the run ends; the launch record lists what was preserved and what was restored.
 - Fresh machine: <the one-time step, such as registering the driver MCP server for the agent, and the doc that holds it>; `<doctor recipe>` then proves the whole path.
 
@@ -74,18 +75,20 @@ _The doctor answers "is this instance worth driving?", so it checks identity and
 - Stable handles: <widget keys / accessible names / route paths / prompt strings / endpoints>, listed per feature in `features/`; never coordinates or tab order.
 - Shorthand used in feature files is defined once in `features/README.md` under Driving conventions.
 - Reset to a known state between features: <how>.
-- The suite: `python ${CLAUDE_SKILL_DIR}/scripts/suite.py --run <run>` drives every recipe in the order `scripts/steps/suite.txt` gives, with the resets where the recipes' preconditions want them (<the chained pair, or "a reset before each">), writes each feature's `walkthrough.md`, recovers after a failed recipe, and ends with `<run>/suite.md`; `--only <ids>` narrows it, and any run directory works, so the `/verify` orchestrator can point it at a shared evidence folder.
+- The suite: `python ${CLAUDE_SKILL_DIR}/scripts/suite.py --run <run> [--tier <tier>]` drives the recipes of one tier in the order `scripts/steps/suite.txt` gives, with the resets where the recipes' preconditions want them (<the chained pair, or "a reset before each">), writes each feature's `walkthrough.md`, recovers after a failed recipe, and ends with `<run>/suite.md`; a line's `tier` mark says which tiers run it (<the fakes-only recipes, the e2e twins>), `peer up` and `peer down` bring <the peer verifier>'s stack up and down in the e2e tiers, `--only <ids>` narrows it, and any run directory works, so the `/verify` orchestrator can point it at a shared evidence folder.
   Use the suite for a maintenance pass and for a plan that touched several features, and the driver alone while iterating on one recipe.
 - Interactive-only steps: <list, or "none">; everything else runs headless.
 
-## Live tier
+## E2E tiers
 
-_Only when a fake, emulator, or dry-run stands in for a real system (a device, a pipeline, a service); otherwise delete this section._
+_Only when a fake, emulator, or dry-run stands in for a real system (a device, a pipeline, a service); otherwise delete this section and declare no tiers in the registry._
 
-- What the fakes stand in for: <the real system and how it is launched for a live check>, with `features/<live-feature>.md` as the recipe and the probes under `scripts/live/` measuring it through its own API (<cadence, latency, counters>), each with the expected numbers and the first measured ones.
-- Every live pass starts with the environment baseline (<the probes to run and the healthy numbers>) saved under `<run>/live/baseline/`, so a recipe that fails on a degraded link or a slow service is classified as environment before product.
+- What each tier launches: `e2e-lite` <the real system in its cheap configuration with a board, the emulator on another machine included>, `e2e-full` <the full configuration: the release model, the servers, the network>, through `launch.py start --tier <tier>`; what each needs from the machine (<a board advertising, the GPU, the network, a server, a scratch data directory>) is the registry entry's `[verifier.tiers.<name>]`, which `just verify-ready` probes before a run.
+- The recipes marked for each tier in `scripts/steps/suite.txt`, with the twins (<a recipe that reads the stand-in's counters has an `-e2e` twin that reads the real system>) and the directives (<`peer up` after the recipe that needs the app at its fake baseline>).
+- The probes under `scripts/live/` measuring the real system through its own API (<cadence, latency, counters>), each with the expected numbers and the first measured ones, and the environment baseline (<the probes to run and the healthy numbers>) saved under `<run>/live/baseline/` or by the launcher, so a recipe that fails on a degraded link or a slow service is classified as environment before product.
 - The transitions the fidelity register in `features/README.md` sends here (<a take, a reconnect, a stream stopped and resumed>) are driven on the real system, because that is where it and the fake differ.
-- A live recipe that acts on the real system (<runs a take, retargets a device>) runs only when the author has asked for a live check.
+- What stays the author's: <a real board in place of the emulator, a recipe whose flags no tier carries>, named here and in the hand-off.
+- The e2e tiers run through `/verify` in an e2e mode before a PR, and by hand with `launch.py start --tier <tier>` then `suite.py --tier <tier>` when iterating on one recipe; a plan's verification phase runs the fakes and hands the e2e rows to `/verify`.
 
 ## Offline tier
 
@@ -94,7 +97,7 @@ _Only when the app, or the stack it launches, has edges that leave the machine a
 - The edges: <each process on the launch path that opens an off-machine connection, and why>, each a row in the fidelity register.
 - Method: a launch on a machine warmed by an earlier online run, with egress refused rather than absent (<the offline flags, a proxy pointed at a tripwire listener that logs and refuses every attempt>), driven through <the suite's launch recipe>; a half-working network is the case to model, so refusal beats disconnection.
 - The gate: <the recipe that runs it and exits non-zero> on any logged attempt or on health not reached, with the tripwire's log and the launch log under `<run>/offline/`.
-- Mandatory for any change that touches <the launch path, model loading, a server, a network client, runtime assets>, reported beside the fake and live tiers.
+- Mandatory for any change that touches <the launch path, model loading, a server, a network client, runtime assets>, reported beside the fakes and e2e tiers.
 
 ## Evidence
 
@@ -105,12 +108,14 @@ _Only when the app, or the stack it launches, has edges that leave the machine a
 - Proof standards: the real user path, not internal setters or test-only endpoints; the action and the resulting state, not only the final screen; side effects checked (<files, rows, messages>) beside what is visible; mocks only at <the production boundary that already isolates the external system>; a dry-run or test mode verified by observing what it skips.
 - Second views: a state the screen mirrors from <the backend> is read a second time from the backend's own side (<the status endpoint, a pane row, a CLI query>); `features/README.md` lists the pairs.
   The screen's own label passes on the fake because the fake is the app's idea of the backend.
-- Transitions: a feature proven from the baseline says nothing about the same feature after <a take, a reconnect, the device coming off>; the fidelity register names them, each recipe drives at least one the fake can do, and the live tier drives the rest.
+- Transitions: a feature proven from the baseline says nothing about the same feature after <a take, a reconnect, the device coming off>; the fidelity register names them, each recipe drives at least one the fake can do, and the e2e tiers drive the rest.
 - Evidence is positive and fresh: every artifact newer than the build, non-empty, and containing the expected text.
 
 ## Cleanup
 
 - Stop what this run started, by the handle recorded at launch: `<command>`.
+- Stop what the launch started outside the app's process tree: <the servers, containers, emulators>, through <the app's own stop path that names them>, and through <each one's stop command> when the app exited, timed out, or was killed before its stop ran; one the launch found running stays running.
+  Then check each is gone and record any still running as `<left_running>` in `launch.json`: a cleanup failure to report, never something for the next launch to adopt.
 - Remove scratch state: <the data directory, the temp profile, the seeded rows>.
 - Never kill by process name; never delete the evidence folder.
 - After cleanup, list the evidence folder and confirm the artifacts are still there.
@@ -120,13 +125,13 @@ _Only when the app, or the stack it launches, has edges that leave the machine a
 - `<drivable entry point>`: the debug-only build the driver talks to, launched by `<launch recipe>`; never the release target, and its dependency is declared where it cannot ship.
 - `<launch recipe>` and `<doctor recipe>`: in the task runner, documented in `<commands doc>`; the per-machine registration of `<driver server>` for the agent is in `<contributing doc>`.
 - `<recipe or script>`: <what it does>, run as `<exact invocation>`. <Why it exists; when it is scaffolding in product code, say so and say what it must never do in a release build.>
-- `${CLAUDE_SKILL_DIR}/scripts/suite.py --run <run> [--only <ids>]` with `scripts/steps/suite.txt`: the recipes in their chaining order with the resets between them, one `walkthrough.md` per feature and `<run>/suite.md` at the end.
+- `${CLAUDE_SKILL_DIR}/scripts/suite.py --run <run> [--tier <tier>] [--only <ids>]` with `scripts/steps/suite.txt`: the recipes in their chaining order with their tier marks and the resets between them, one `walkthrough.md` per feature and `<run>/suite.md` at the end.
 - `${CLAUDE_SKILL_DIR}/scripts/selfcheck.py [--strict|--hook]` (recipe `just <app>-verify-check`, hook `<hook id>`): the map against the app, as described under Self-check; it reads files and git only.
-- `.claude/verifiers.toml`, this skill's entry: the targets it proves, its runtime peers, its live-only globs, its prerequisites, its ports, and its suite and self-check commands, which the `/verify` orchestrator reads to put the skill in scope; `<coverage check recipe>` keeps every target in the repository claimed.
+- `.claude/verifiers.toml`, this skill's entry: the targets it proves, its runtime peers, its e2e-only globs, its e2e tiers with their needs (and the peer stack a tier borrows), its prerequisites, its ports, and its suite and self-check commands, which the `/verify` orchestrator reads to put the skill in scope and to check the machine before an e2e run; `<coverage check recipe>` keeps every target in the repository claimed.
 
 ## Feature map
 
-`features/README.md` is the index: baseline preconditions, driving conventions, proof rules, the second views, the fidelity register (what the fakes do not model and the transitions that need the live tier), the navigation diagram, and one line per feature.
+`features/README.md` is the index: baseline preconditions, driving conventions, proof rules, the second views, the fidelity register (what the fakes do not model and the transitions that need the e2e tiers), the navigation diagram, and one line per feature.
 Each feature file has four sections in a fixed order: `Sub-features`, `How to get to it (user POV)`, `Driving it with <harness>`, `Gotchas`, and a `Sources:` line under its `Status:` naming the app source that renders it, which the self-check uses to claim every user-facing file and to flag the feature as stale when those files change after its last drive.
 A proof that drives one convenient entry point is incomplete when the map lists others.
 Add or update a feature file in the same change that adds or changes the feature, with its `Sources:` line and its steps file, add it to `scripts/steps/suite.txt`, reset its `Status:` line to drafted until a run drives it, and run the self-check before handing the change over.
@@ -141,10 +146,10 @@ Add or update a feature file in the same change that adds or changes the feature
 - When the repository has a task runner, the helper is a recipe in it and the skill references the recipe; the recipe keeps the venv, the flags, and the paths right when they change.
 - Scripts the skill ships go under `scripts/`, in the language the repository uses for tooling, executable, invoked as shown in the skill body, and referenced as `${CLAUDE_SKILL_DIR}/scripts/<name>` so they resolve from any working directory.
 - `scripts/selfcheck.py` starts from [selfcheck-template.py](selfcheck-template.py): fill in the surface globs, the visible-string patterns for the app's UI toolkit, and the driving H2's harness name, keep the exit codes, and give it a recipe and a pre-commit hook (`--hook`, filtered to the app's source and the skill directory, `pass_filenames: false`).
-- `scripts/suite.py` with `scripts/steps/suite.txt`: the manifest lists `<feature-id> <steps-file>` lines and `reset` lines; the runner drives them in order through the driver, writes each walkthrough, recovers with the reset recipe after a failure, and writes `<run>/suite.md`.
+- `scripts/suite.py` with `scripts/steps/suite.txt`: the manifest lists `<feature-id> <steps-file> [tier <tiers>]` lines, `reset` lines, and `peer up` and `peer down` lines, in the grammar [verifier-contract.md](verifier-contract.md) gives; the runner drives the lines of one tier (`--tier`) in order through the driver, writes each walkthrough, recovers with the reset recipe after a failure, and writes `<run>/suite.md`.
   The org-repo `verify-demo-app` skill ships one to copy; it depends only on the driver's exit codes (0 pass, 1 a failed step, 2 unreachable) and `result.json`.
 - The launch helper copies aside the files a drive changes outside the app and restores them when the run ends, recording both in the launch record.
-- The registry entry follows [verifier-contract.md](verifier-contract.md): `proves` from the Surface answer, `runtime_peers` from the Peers at runtime answer, `live_only` from the fidelity register, each `prerequisite` from the build step a changed source needs, `ports` from the Isolate answer, and `suite` and `selfcheck` as the commands the Helpers section names.
+- The registry entry follows [verifier-contract.md](verifier-contract.md): `proves` from the Surface answer, `runtime_peers` from the Peers at runtime answer, `e2e_only` from the fidelity register, each `[verifier.tiers.<name>]` from the E2E tiers section's needs with `peer_stack` when a tier borrows another verifier's stack, each `prerequisite` from the build step a changed source needs, `ports` from the Isolate answer, and `suite` and `selfcheck` as the commands the Helpers section names.
 - Commands written for the author to run go in the author's shell syntax; in this family that is PowerShell, without `&&`.
 - A debug-only entry point that enables a driver extension lives beside the app's `main`, is named for what it is (`main_driver.dart`, `--driver`), and never becomes the release entry point.
 
@@ -161,8 +166,8 @@ A feature map rots the moment the app changes, so run a maintenance pass when th
 - Index hygiene: read `features/README.md`, list its sibling files, and fix missing, extra, duplicate, or dead entries the self-check could not judge.
 - Source wave: one read-only subagent per feature file, launched together, each explaining how that user-facing feature works from source and returning a summary, the source entry points, likely drift with citations or none, and one live recipe; subagents never drive the app and never edit files.
 - Reconcile: merge overlapping recipes into as few app states as practical, spot-check cited drift, and sweep recent churn for user-facing surfaces missing from the map, requiring a concrete source path before calling one missing.
-- After a live incident: name the fake's gap in the fidelity register, add the probe or the transition that would have shown it, and record the measured numbers in the live feature file; a gap the register names is one a plan's verification phase sends to the live tier.
-- Live pass, required even when source looks clean: the coordinating session drives every feature at least once under this skill's own Launch model (the suite for the fake tier, then the live tier when the author has asked for a live check), with the doctor before the first drive and after any failed drive, evidence surviving every cleanup at its named location, and residue from failed drives cleaned whether the session is stuck, exited, or shared.
+- After a live incident: name the fake's gap in the fidelity register, add the probe or the transition that would have shown it, and record the measured numbers in the live feature file; a gap the register names is one a plan's verification phase hands to `/verify` in an e2e mode.
+- Live pass, required even when source looks clean: the coordinating session drives every feature at least once under this skill's own Launch model (`suite.py --tier fakes`, then `--tier e2e-lite` with <the board or its emulator> advertising, when the author has asked for an e2e check), with the doctor before the first drive and after any failed drive, evidence surviving every cleanup at its named location, and residue from failed drives cleaned whether the session is stuck, exited, or shared.
   A feature is `verified-unreachable` only with the concrete prerequisite (auth, entitlement, OS, device, external state) and the route attempted; if the map omitted that prerequisite, that is drift.
 - Triage: a wrong or missing user-POV description is doc drift, fix it; working behaviour the harness cannot drive is a harness gap, fix it and re-drive before it ships; app behaviour that is broken is a product gap, record it for the author and keep it out of this change.
 - Outcome, stated plainly: `clean` (every feature covered from source and live, nothing to ship), `changed` (one change set of proven corrections, re-read before hand-off, committed by the author), or `blocked` (coverage could not finish or a fix could not ship safely, with exactly what blocked it).

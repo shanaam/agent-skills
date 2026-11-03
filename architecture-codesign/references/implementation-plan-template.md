@@ -68,7 +68,7 @@ Conventions for everything this plan produces:
 - **Out of scope (for now):** <list>.
 - **Guards:** <which decisions get a mechanical check (a lint rule, a structural test, a hook) and which stay advisory>.
 - **Riskiest assumption:** <the one the design most depends on, and the spike in Phase 0 that tests it>.
-- **Verifier impact:** <the `verify-<app>` feature files and sub-feature ids this plan adds or changes, and for each whether the fake tier proves it or the map's fidelity register sends it to the live tier; "none" when no user-facing behaviour changes>.
+- **Verifier impact:** <the `verify-<app>` feature files and sub-feature ids this plan adds or changes, and for each the tier that proves it (`fakes`, or `e2e-lite` or `e2e-full` when the map's fidelity register sends it to the real system, proven by `/verify` before the PR); "none" when no user-facing behaviour changes>.
 
 ### Target architecture
 
@@ -174,19 +174,19 @@ Evidence contract (written with the plan, before the code):
 
 | Criterion | Tier | Command | Observable | Artifact | Pass rule |
 |---|---|---|---|---|---|
-| <from a done-when line> | <fake / live / headless> | `just verify-<feature>` or <command> | <text, status code, widget, metric> | `<descriptive_name>_verification/<date>/after/<file>` | <exit 0 / contains X / within Y> |
+| <from a done-when line> | <fakes / e2e-lite / e2e-full / offline / headless> | `just verify-<feature>` or <command> | <text, status code, widget, metric> | `<descriptive_name>_verification/<date>/after/<file>` | <exit 0 / contains X / within Y> |
 
-The tier comes from the verify skill's fidelity register: a journey through a gap the fake has (a control applied on the next data, a clock that restarts, a reconnect, a shared port) is live, with its second view (the backend's own status) named as the observable, because a recipe on the fake passes before and after a bug that lives in a gap.
+The tier comes from the verify skill's fidelity register: a journey through a gap the fake has (a control applied on the next data, a clock that restarts, a reconnect, a shared port) is `e2e-lite` or above, with its second view (the backend's own status) named as the observable, because a recipe on the fake passes before and after a bug that lives in a gap.
 Interactive steps (need a screen): <list, or "none">.
 Headless steps (can run unattended): <list>.
-Live steps (need the real system, run only when the author has asked): <list, or "none">, preceded by the skill's environment baseline.
+E2E steps (proven by `/verify` in `e2e-lite` or above before the PR, queued in the hand-off): <list, or "none">.
 Gate: `just verify-<feature>` (or <the repo's equivalent>), non-zero on failure; an unattended run stops on it.
 
 - [ ] The verify skill's self-check exits 0 (`just <app>-verify-check`): every surface this plan added is claimed by a feature file, and the features it reports stale are the ones driven below.
 - [ ] Full suites green at the counts recorded in Phase 0 or better; static analysis clear on every touched file.
 - [ ] The gate recipe exists, exits non-zero on the old behaviour, and exits 0 on the new build.
 - [ ] Convergence audit: read the code against Design decisions and list every gap as missing, partial, contradicting, or unrequested; append each as a task above rather than fixing it silently, and loop until the audit is clean.
-- [ ] Agent-as-user walkthrough: drive the changed application the way a user would, through the repository's `verify-<app>` skill (its Launch, Doctor, Drive, Evidence, and Cleanup sections, with `features/<feature>.md` as the recipe for each changed journey), along each journey the design decisions changed: the suite for every touched fake-tier feature, each one also after the transitions its feature file names, and the live tier's probes and recipe for the live rows of the contract.
+- [ ] Agent-as-user walkthrough: drive the changed application the way a user would, through the repository's `verify-<app>` skill (its Launch, Doctor, Drive, Evidence, and Cleanup sections, with `features/<feature>.md` as the recipe for each changed journey), along each journey the design decisions changed: the suite for every touched fakes-tier feature, each one also after the transitions its feature file names, and the mandatory offline tier where the skill has one; the e2e rows of the contract are `/verify`'s in an e2e mode before the PR, queued under Awaiting the author with the mode.
       Capture a screenshot at every step that shows new behaviour, and write `walkthrough.md` beside them naming each screenshot, what it shows, and what was expected; set each driven feature's `Status:` to `driven on <date>`.
 - [ ] Performance evidence when a process's hot path changed: a profile of the new build under the same load as the Phase 0 baseline, saved under `after/`, with a one-line reading of the two flame graphs side by side.
 - [ ] Fresh-eyes review by a separate verifier session or subagent that did not write the code, given the diff, the done-when lines, and the evidence folder, asked to flag gaps that affect correctness or the stated requirements and, with the same weight, anything that leaves the code harder to understand or change than the design needed.
@@ -244,7 +244,7 @@ Evidence: `<descriptive_name>_verification/<date>/` (<n> screenshots, <profiles 
 | <criterion> | `<command>` | [flame graph](<descriptive_name>_verification/<date>/after/<name>.svg) | <one-line reading> |
 
 Not verified by the agent: <real hardware, GPU environment, interactive-only tools unavailable in this run>.
-Verifier: self-check <exit code and its warnings at hand-off>; features driven <ids with dates>; features left drafted <ids and why>; fidelity rows this plan could not exercise <rows>.
+Verifier: self-check <exit code and its warnings at hand-off>; features driven <ids with dates>; features left drafted <ids and why>; e2e rows handed to `/verify` <rows>.
 
 ### Human test (last step)
 
@@ -263,6 +263,7 @@ Expect: <what appears>; pass when <observation>.
 ### Awaiting the author
 
 - <ADR acceptance or addendum approval, with the draft's location.>
+- <The `/verify` run in `e2e-lite` or above before the PR, for the e2e rows of the evidence contract.>
 - <Rules-file edit awaiting approval, with the proposed text.>
 - <The commits, and any file that should go in its own commit (lockfiles, generated artifacts).>
 
