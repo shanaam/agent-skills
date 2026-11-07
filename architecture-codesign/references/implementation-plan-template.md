@@ -127,7 +127,7 @@ sequenceDiagram
   ...
 ```
 
-*Consider invoking the `tdd` skill (`test-driven-development-tdd`) for this phase: <why tests-first fits here, for example a concrete spec and a test framework in place>.*
+*Consider invoking the `tdd` skill for this phase: <why tests-first fits here, for example a concrete spec and a test framework in place>.*
 <When it fits, state the expected behaviour here in the plan's own words, independent of any implementation the executor will see.>
 
 - [ ] <Concrete task, stated as the observable result.>
