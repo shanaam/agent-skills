@@ -1,0 +1,13 @@
+{
+  "name": "shanaam-skills",
+  "owner": { "name": "Shanaa" },
+  "description": "Personal agent skills",
+  "plugins": [
+    {
+      "name": "shanaa",
+      "source": "./",
+      "description": "Shanaa's personal agent skills",
+      "skills": ["./"]
+    }
+  ]
+}
