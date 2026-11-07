@@ -13,6 +13,12 @@ a collection of curated agent skills for personal workflows
    
    ln -s ~/dev/agent-skills ~/.claude/skills
 
+3. turn on the pre-commit hook (once per clone). It blocks commits with a skill that claude.ai's marketplace sync would reject, which `claude plugin validate` doesn't catch: invalid frontmatter YAML, a name that doesn't match its folder or contains "claude"/"anthropic", or a description over 1,024 characters or containing `<` / `>`. Needs ruby (macOS has it built in); without ruby the hook warns and skips the check.
+
+   git config core.hooksPath .githooks
+
+   To check without committing: `ruby .githooks/check-skills.rb`
+
 # Templates
 [templates/](templates/) holds starter files to copy into the root of any new project.
 Copy `AGENTS.md` and `CLAUDE.md` together so the `@AGENTS.md` import in `CLAUDE.md` resolves.

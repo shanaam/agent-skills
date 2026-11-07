@@ -1,0 +1,22 @@
+#!/bin/sh
+# Blocks a commit if any staged skill would fail claude.ai's marketplace sync.
+# Turn it on once per clone:   git config core.hooksPath .githooks
+# Skip it for one commit:      git commit --no-verify
+
+hook_dir=$(dirname "$0")
+
+if ! command -v ruby >/dev/null 2>&1; then
+  echo "pre-commit: ruby not found, so the claude.ai skill checks were skipped." >&2
+  exit 0
+fi
+
+tmp=$(mktemp -d) || exit 1
+trap 'rm -rf "$tmp"' EXIT
+
+# Export the staged copies, so the check sees what is being committed rather
+# than unstaged edits in the working tree.
+git ls-files -z -- '*/SKILL.md' | git checkout-index -z --stdin --prefix="$tmp/" || exit 1
+
+ruby "$hook_dir/check-skills.rb" "$tmp"
+status=$?
+exit $status
