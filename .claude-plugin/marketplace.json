@@ -6,8 +6,7 @@
     {
       "name": "shanaa",
       "source": "./",
-      "description": "Shanaa's personal agent skills",
-      "skills": ["./"]
+      "description": "Shanaa's personal agent skills"
     }
   ]
 }

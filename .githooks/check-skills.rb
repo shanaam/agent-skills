@@ -1,9 +1,11 @@
-# Checks every <folder>/SKILL.md under a directory against the skill rules
-# claude.ai's marketplace sync enforces. Claude Code's own validator
+# Checks every skills/<folder>/SKILL.md under a repo root against the skill
+# rules claude.ai's marketplace sync enforces. Claude Code's own validator
 # (`claude plugin validate`, even with --strict) does not catch these, and one
-# failing skill fails the sync for the whole plugin.
+# failing skill fails the sync for the whole plugin. Also flags a SKILL.md
+# left at the repo root, outside skills/, where neither the plugin nor the
+# ~/.claude/skills symlink would pick it up.
 #
-# Usage: ruby .githooks/check-skills.rb [dir]   (dir defaults to .)
+# Usage: ruby .githooks/check-skills.rb [repo-root]   (defaults to .)
 # The pre-commit hook runs it on the staged copy of the repo.
 
 require "yaml"
@@ -55,24 +57,29 @@ def problems_for(path, folder)
 end
 
 root = ARGV[0] || "."
-skills = Dir.glob(File.join(root, "*", "SKILL.md")).sort
-if skills.empty?
-  puts "check-skills: no <folder>/SKILL.md files found under #{root}"
+skills = Dir.glob(File.join(root, "skills", "*", "SKILL.md")).sort
+strays = Dir.glob(File.join(root, "*", "SKILL.md")).sort
+if skills.empty? && strays.empty?
+  puts "check-skills: no skills/<folder>/SKILL.md files found under #{root}"
   exit 0
 end
 
 failures = skills.map do |path|
   folder = File.basename(File.dirname(path))
   problems = problems_for(path, folder)
-  [folder, problems] unless problems.empty?
+  ["skills/#{folder}", problems] unless problems.empty?
 end.compact
+strays.each do |path|
+  folder = File.basename(File.dirname(path))
+  failures << [folder, ["skill is outside skills/, so it won't sync or load; move it to skills/#{folder}/"]]
+end
 
 if failures.empty?
   puts "check-skills: all #{skills.size} skills pass claude.ai's skill rules"
   exit 0
 end
 
-warn "check-skills: #{failures.size} of #{skills.size} skills would fail claude.ai's marketplace sync:"
+warn "check-skills: #{failures.size} of #{skills.size + strays.size} skills would fail claude.ai's marketplace sync:"
 failures.each do |folder, problems|
   problems.each { |problem| warn "  #{folder}/SKILL.md: #{problem}" }
 end

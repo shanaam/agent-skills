@@ -1,17 +1,19 @@
 # agent_skills
 a collection of curated agent skills for personal workflows
 
+each skill lives in `skills/<name>/SKILL.md`. the repo is also a plugin marketplace (`.claude-plugin/`) that claude.ai syncs from, as the `shanaa` plugin.
+
 # Setup
 1. git clone this repo
 
-2. symlink /.claude/skills to the repo (destructive, will replace). Windows will need developer mode on.
+2. symlink ~/.claude/skills to the repo's skills/ folder (destructive, will replace). Windows will need developer mode on.
 
    Powershell:
-   cmd /c mklink /D "$env:USERPROFILE\.claude\skills" "D:\...\agent-skills"
+   cmd /c mklink /D "$env:USERPROFILE\.claude\skills" "D:\...\agent-skills\skills"
 
    OR
    
-   ln -s ~/dev/agent-skills ~/.claude/skills
+   ln -s ~/dev/agent-skills/skills ~/.claude/skills
 
 3. turn on the pre-commit hook (once per clone). It blocks commits with a skill that claude.ai's marketplace sync would reject, which `claude plugin validate` doesn't catch: invalid frontmatter YAML, a name that doesn't match its folder or contains "claude"/"anthropic", or a description over 1,024 characters or containing `<` / `>`. Needs ruby (macOS has it built in); without ruby the hook warns and skips the check.
 
