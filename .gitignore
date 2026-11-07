@@ -1,6 +1,8 @@
 # Windows "mark of the web" download artifacts (WSL/NTFS)
 *Zone.Identifier
 
-# Managed by Claude Code's claude.ai skill sync (via the ~/.claude/skills symlink)
+# claude.ai skill-sync folders. They only land in this repo on a machine that
+# still symlinks ~/.claude/skills into it (the old setup); kept ignored so they
+# are never committed by accident.
 synced/
 .trash/

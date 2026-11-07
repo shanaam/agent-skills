@@ -4,16 +4,18 @@ a collection of curated agent skills for personal workflows
 each skill lives in `skills/<name>/SKILL.md`. the repo is also a plugin marketplace (`.claude-plugin/`) that claude.ai syncs from, as the `shanaa` plugin.
 
 # Setup
-1. git clone this repo
+1. on claude.ai, add this repo (`shanaam/agent-skills`) as a plugin marketplace and install the `shanaa` plugin. Claude Code (mac or Windows) downloads it when a session starts, signed in with the same claude.ai account. Skills run as `/shanaa:<skill>`.
 
-2. symlink ~/.claude/skills to the repo's skills/ folder (destructive, will replace). Windows will need developer mode on.
+   after a push, claude.ai pulls the repo (automatically, or with Sync), and the next Claude Code session picks up the change.
 
-   Powershell:
-   cmd /c mklink /D "$env:USERPROFILE\.claude\skills" "D:\...\agent-skills\skills"
+2. to edit skills, git clone this repo. To try local edits before pushing, load the working copy for one session (it replaces the synced copy):
 
-   OR
-   
-   ln -s ~/dev/agent-skills/skills ~/.claude/skills
+   claude --plugin-dir ~/dev/agent-skills
+
+   older setups symlinked ~/.claude/skills into this repo. Remove only the link, and Claude Code recreates the folder:
+
+   mac: `rm ~/.claude/skills`
+   Windows: `cmd /c rmdir "%USERPROFILE%\.claude\skills"` (not `Remove-Item -Recurse`, which can delete the repo's files)
 
 3. turn on the pre-commit hook (once per clone). It blocks commits with a skill that claude.ai's marketplace sync would reject, which `claude plugin validate` doesn't catch: invalid frontmatter YAML, a name that doesn't match its folder or contains "claude"/"anthropic", or a description over 1,024 characters or containing `<` / `>`. Needs ruby (macOS has it built in); without ruby the hook warns and skips the check.
 
