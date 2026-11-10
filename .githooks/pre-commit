@@ -1,5 +1,6 @@
 #!/bin/sh
-# Blocks a commit if any staged skill would fail claude.ai's marketplace sync.
+# Blocks a commit if any staged skill would fail claude.ai's marketplace sync,
+# or if skills/ changed without raising the version in .claude-plugin/plugin.json.
 # Turn it on once per clone:   git config core.hooksPath .githooks
 # Skip it for one commit:      git commit --no-verify
 
@@ -17,6 +18,7 @@ trap 'rm -rf "$tmp"' EXIT
 # than unstaged edits in the working tree.
 git ls-files -z -- '*/SKILL.md' | git checkout-index -z --stdin --prefix="$tmp/" || exit 1
 
-ruby "$hook_dir/check-skills.rb" "$tmp"
-status=$?
+status=0
+ruby "$hook_dir/check-skills.rb" "$tmp" || status=1
+ruby "$hook_dir/check-version.rb" || status=1
 exit $status

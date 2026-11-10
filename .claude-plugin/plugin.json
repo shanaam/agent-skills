@@ -1,5 +1,6 @@
 {
   "name": "shanaa",
   "description": "Shanaa's personal agent skills",
+  "version": "1.0.0",
   "author": { "name": "Shanaa" }
 }
